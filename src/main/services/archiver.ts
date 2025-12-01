@@ -1,28 +1,55 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import archiver from 'archiver';
+import archiver, { ArchiverOptions } from 'archiver';
 import { Result, ErrorCode } from '../../shared/types';
 import { ERROR_MESSAGES } from '../../shared/constants';
 import { getTempDir, generateArchiveName } from '../utils/paths';
 
+// Register encrypted ZIP format (once at module load)
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+archiver.registerFormat('zip-encrypted', require('archiver-zip-encrypted'));
+
+// Extended options for encrypted archives
+interface EncryptedArchiverOptions extends ArchiverOptions {
+  encryptionMethod?: 'aes256' | 'zip20';
+  password?: string;
+}
+
 export interface ArchiveResult {
   archivePath: string;
   fileCount: number;
+  encrypted: boolean;
+}
+
+export interface ArchiveOptions {
+  password?: string;
 }
 
 /**
  * Creates a ZIP archive from multiple paths.
- * Returns the path to the created archive.
+ * If password is provided, creates an AES-256 encrypted archive.
  */
-export async function createArchive(paths: string[]): Promise<Result<ArchiveResult>> {
+export async function createArchive(
+  paths: string[],
+  options: ArchiveOptions = {}
+): Promise<Result<ArchiveResult>> {
   const tempDir = getTempDir();
   const archiveName = generateArchiveName();
   const archivePath = path.join(tempDir, archiveName);
+  const { password } = options;
 
   return new Promise((resolve) => {
     try {
       const output = fs.createWriteStream(archivePath);
-      const archive = archiver('zip', { zlib: { level: 6 } });
+
+      // Use encrypted format if password provided
+      const archive = password
+        ? archiver.create('zip-encrypted', {
+            zlib: { level: 6 },
+            encryptionMethod: 'aes256',
+            password,
+          } as EncryptedArchiverOptions)
+        : archiver('zip', { zlib: { level: 6 } });
 
       let fileCount = 0;
 
@@ -32,6 +59,7 @@ export async function createArchive(paths: string[]): Promise<Result<ArchiveResu
           data: {
             archivePath,
             fileCount,
+            encrypted: !!password,
           },
         });
       });
@@ -92,9 +120,14 @@ export async function createArchive(paths: string[]): Promise<Result<ArchiveResu
 
 /**
  * Determines if archiving is needed.
- * Archive if: multiple items OR any directory.
+ * Archive if: multiple items OR any directory OR encryption requested.
  */
-export function needsArchiving(paths: string[]): boolean {
+export function needsArchiving(paths: string[], password?: string): boolean {
+  // Always archive if encryption is requested
+  if (password) {
+    return true;
+  }
+
   if (paths.length > 1) {
     return true;
   }

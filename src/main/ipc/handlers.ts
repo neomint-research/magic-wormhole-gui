@@ -13,9 +13,9 @@ export function registerIpcHandlers(): void {
     return checkDocker();
   });
 
-  // Send files
-  ipcMain.handle('wormhole:send', async (_event, paths: string[]) => {
-    return send({ paths });
+  // Send files (with optional encryption)
+  ipcMain.handle('wormhole:send', async (_event, paths: string[], password?: string) => {
+    return send({ paths, password });
   });
 
   // Receive file

@@ -54,12 +54,14 @@ export type Result<T> = SuccessResult<T> | ErrorResult;
 
 export interface SendRequest {
   paths: string[];
+  password?: string;
 }
 
 export interface SendResponse {
   code: string;
   archiveUsed: boolean;
   archivePath?: string;
+  encrypted?: boolean;
 }
 
 export interface ReceiveRequest {
@@ -122,7 +124,7 @@ export interface AppState {
 // ============================================================
 
 export interface WormholeAPI {
-  send: (paths: string[]) => Promise<Result<SendResponse>>;
+  send: (paths: string[], password?: string) => Promise<Result<SendResponse>>;
   receive: (code: string) => Promise<Result<ReceiveResponse>>;
   checkDocker: () => Promise<Result<DockerStatus>>;
   getFilePaths: () => Promise<string[] | null>;

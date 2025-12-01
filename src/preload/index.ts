@@ -2,8 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { WormholeAPI, Result, SendResponse, ReceiveResponse, DockerStatus } from '../shared/types';
 
 const api: WormholeAPI = {
-  send: (paths: string[]): Promise<Result<SendResponse>> => {
-    return ipcRenderer.invoke('wormhole:send', paths);
+  send: (paths: string[], password?: string): Promise<Result<SendResponse>> => {
+    return ipcRenderer.invoke('wormhole:send', paths, password);
   },
 
   receive: (code: string): Promise<Result<ReceiveResponse>> => {

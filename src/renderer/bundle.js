@@ -1,495 +1,510 @@
-// ============================================================
-// RENDERER BUNDLE - All renderer code in one file (no modules)
-// ============================================================
-
 (function() {
   'use strict';
 
-  // Enable drag & drop globally - Chromium blocks drops by default
-  document.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  document.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
+  // Global drag & drop - Chromium blocks drops without this
+  document.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
+  document.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); });
 
-  // ============================================================
-  // STATE
-  // ============================================================
+  // ---------------------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------------------
 
-  const initialState = {
-    tab: 'send',
-    docker: 'checking',
-    send: { status: 'idle' },
-    receive: { status: 'idle' },
+  const MAX_FILES = 100;
+  const MIN_PASSWORD_LENGTH = 4;
+
+  const STATUS = {
+    IDLE: 'idle',
+    FILES_SELECTED: 'files-selected',
+    PACKAGING: 'packaging',
+    SENDING: 'sending',
+    CODE_ENTERED: 'code-entered',
+    RECEIVING: 'receiving',
+    SUCCESS: 'success',
+    ERROR: 'error',
   };
 
-  let currentState = { ...initialState };
-  let listeners = [];
+  const DOCKER = {
+    CHECKING: 'checking',
+    AVAILABLE: 'available',
+    UNAVAILABLE: 'unavailable',
+  };
 
-  function getState() {
-    return currentState;
-  }
+  const ICONS = {
+    upload: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+    download: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+    check: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    folder: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    lock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+    eye: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+  };
 
-  function subscribe(listener) {
-    listeners.push(listener);
-    return () => {
-      listeners = listeners.filter((l) => l !== listener);
-    };
-  }
+  // ---------------------------------------------------------------------------
+  // State Management
+  // ---------------------------------------------------------------------------
 
-  function notify() {
-    for (const listener of listeners) {
-      listener(currentState);
-    }
-  }
+  let state = {
+    tab: 'send',
+    docker: DOCKER.CHECKING,
+    send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false },
+    receive: { status: STATUS.IDLE },
+  };
 
-  function setTab(tab) {
-    currentState = { ...currentState, tab };
+  const listeners = [];
+
+  function getState() { return state; }
+  function subscribe(fn) { listeners.push(fn); }
+  function notify() { listeners.forEach(fn => fn(state)); }
+
+  function setState(partial) {
+    state = { ...state, ...partial };
     notify();
   }
 
-  function setDockerState(docker) {
-    currentState = { ...currentState, docker };
-    notify();
+  function setSendState(send) { setState({ send: { ...state.send, ...send } }); }
+  function setReceiveState(receive) { setState({ receive }); }
+
+  // ---------------------------------------------------------------------------
+  // File Management
+  // ---------------------------------------------------------------------------
+
+  function addFiles(paths) {
+    const { items } = state.send;
+    const existing = new Set(items.map(i => i.path));
+    const newItems = paths
+      .filter(p => !existing.has(p))
+      .map(p => ({ path: p, name: p.split(/[/\\]/).pop() || p }));
+
+    if (newItems.length === 0) return;
+
+    setSendState({
+      status: STATUS.FILES_SELECTED,
+      items: [...items, ...newItems].slice(0, MAX_FILES),
+    });
   }
 
-  function setSendState(send) {
-    currentState = { ...currentState, send };
-    notify();
+  function removeFile(index) {
+    const items = state.send.items.filter((_, i) => i !== index);
+    setSendState(items.length
+      ? { status: STATUS.FILES_SELECTED, items }
+      : { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false }
+    );
   }
 
-  function setReceiveState(receive) {
-    currentState = { ...currentState, receive };
-    notify();
+  function clearFiles() {
+    setSendState({ status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false });
   }
 
-  function resetSend() {
-    currentState = { ...currentState, send: { status: 'idle' } };
-    notify();
+  function setEncrypt(encrypt) {
+    setSendState({ encrypt, password: encrypt ? state.send.password : '', showPassword: false });
   }
 
-  function resetReceive() {
-    currentState = { ...currentState, receive: { status: 'idle' } };
-    notify();
+  function setPassword(password) {
+    setSendState({ password });
+    // Restore focus after re-render
+    requestAnimationFrame(() => {
+      const input = $('encryptPassword');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(password.length, password.length);
+      }
+    });
   }
 
-  // ============================================================
-  // SEND TAB
-  // ============================================================
+  function toggleShowPassword() {
+    setSendState({ showPassword: !state.send.showPassword });
+    requestAnimationFrame(() => {
+      const input = $('encryptPassword');
+      if (input) {
+        input.focus();
+        const len = state.send.password.length;
+        input.setSelectionRange(len, len);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Utilities
+  // ---------------------------------------------------------------------------
+
+  function escapeHtml(text) {
+    const el = document.createElement('div');
+    el.textContent = text;
+    return el.innerHTML;
+  }
+
+  function $(id) { return document.getElementById(id); }
+
+  function isPasswordValid() {
+    return !state.send.encrypt || state.send.password.length >= MIN_PASSWORD_LENGTH;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Send Tab
+  // ---------------------------------------------------------------------------
 
   let sendContainer = null;
-  let dropzoneListenersAttached = false;
-
-  function initSendTab(element) {
-    sendContainer = element;
-    renderSend();
-  }
 
   function renderSend() {
     if (!sendContainer) return;
-
-    const state = getState().send;
-    sendContainer.innerHTML = getSendHTML(state);
-    attachSendEventListeners(state);
+    const s = state.send;
+    sendContainer.innerHTML = getSendHTML(s);
+    attachSendListeners(s);
   }
 
-  function getSendHTML(state) {
-    switch (state.status) {
-      case 'idle':
-        return `
-          <div class="dropzone" id="dropzone">
-            <p class="dropzone-text">Drop files or folders here</p>
-            <p class="dropzone-subtext">or use buttons below</p>
-          </div>
-          <div class="button-row">
-            <button class="btn btn-secondary" id="browseFilesBtn">Select Files</button>
-            <button class="btn btn-secondary" id="browseFolderBtn">Select Folder</button>
-          </div>
-          <button class="btn btn-primary" id="sendBtn" disabled>Send</button>
-        `;
+  function getSendHTML(s) {
+    const buttonText = s.encrypt && s.password.length >= MIN_PASSWORD_LENGTH ? 'Encrypt & Send' : 'Send';
+    const buttonDisabled = s.status !== STATUS.FILES_SELECTED || !isPasswordValid();
 
-      case 'files-selected':
-        const fileList = state.names.slice(0, 3).join(', ');
-        const moreCount = state.names.length - 3;
-        const displayText = moreCount > 0 ? `${fileList} +${moreCount} more` : fileList;
+    switch (s.status) {
+      case STATUS.IDLE:
         return `
-          <div class="dropzone dropzone-selected" id="dropzone">
-            <p class="dropzone-text">${state.names.length} item(s) selected</p>
-            <p class="dropzone-subtext">${displayText}</p>
+          <div class="dropzone dropzone-clickable" id="dropzone">
+            <div class="dropzone-icon">${ICONS.upload}</div>
+            <p class="dropzone-text">Drop files here to send</p>
+            <p class="dropzone-subtext">or <button class="link-btn" id="browseFilesBtn">browse files</button> / <button class="link-btn" id="browseFolderBtn">folder</button></p>
           </div>
-          <div class="button-row">
-            <button class="btn btn-secondary" id="browseFilesBtn">Select Files</button>
-            <button class="btn btn-secondary" id="browseFolderBtn">Select Folder</button>
-          </div>
-          <button class="btn btn-primary" id="sendBtn">Send</button>
-        `;
+          <button class="btn btn-primary" id="sendBtn" disabled>Send</button>`;
 
-      case 'packaging':
+      case STATUS.FILES_SELECTED:
+        const items = s.items.map((item, i) => `
+          <div class="file-item">
+            <div class="file-item-info">
+              <span class="file-item-name">${escapeHtml(item.name)}</span>
+              <span class="file-item-path">${escapeHtml(item.path)}</span>
+            </div>
+            <button class="file-item-remove" data-index="${i}">&times;</button>
+          </div>`).join('');
+
         return `
-          <div class="status-box">
-            <div class="spinner"></div>
-            <p>Creating archive...</p>
+          <div class="dropzone dropzone-compact" id="dropzone">
+            <span class="dropzone-text-small">Drop more files or <button class="link-btn link-btn-small" id="browseFilesBtn">browse</button></span>
           </div>
-          <button class="btn btn-primary" disabled>Send</button>
-        `;
-
-      case 'sending':
-        return `
-          <div class="status-box">
-            <div class="spinner"></div>
-            <p>Sending via wormhole...</p>
+          <div class="file-list-container">
+            <div class="file-list-header">
+              <span>${s.items.length} item${s.items.length !== 1 ? 's' : ''}</span>
+              <button class="clear-all-btn" id="clearAllBtn">Clear all</button>
+            </div>
+            <div class="file-list" id="fileList">${items}</div>
           </div>
-          <button class="btn btn-primary" disabled>Send</button>
-        `;
+          <div class="encrypt-row">
+            <label class="encrypt-toggle">
+              <input type="checkbox" id="encryptCheck" ${s.encrypt ? 'checked' : ''}>
+              <span class="encrypt-label">${ICONS.lock} Encrypt</span>
+            </label>
+            <div class="password-wrapper ${s.encrypt ? '' : 'hidden'}">
+              <input type="${s.showPassword ? 'text' : 'password'}" 
+                     class="encrypt-password" 
+                     id="encryptPassword" 
+                     placeholder="Password (min ${MIN_PASSWORD_LENGTH} chars)"
+                     value="${s.password}"
+                     autocomplete="off">
+              <button type="button" class="password-toggle" id="togglePassword" title="${s.showPassword ? 'Hide' : 'Show'} password">
+                ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-primary ${s.encrypt ? 'btn-encrypt' : ''}" id="sendBtn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>`;
 
-      case 'success':
+      case STATUS.PACKAGING:
+      case STATUS.SENDING:
+        const msg = s.status === STATUS.PACKAGING
+          ? (s.encrypt ? 'Encrypting files...' : 'Preparing files...')
+          : 'Creating secure connection...';
+        return `<div class="status-box"><div class="spinner"></div><p class="status-text">${msg}</p></div>`;
+
+      case STATUS.SUCCESS:
+        const encryptNote = s.encrypted
+          ? `<p class="encrypt-note">${ICONS.lock} This transfer is password-protected</p>`
+          : '';
         return `
           <div class="success-box">
-            <p class="success-label">Wormhole Code:</p>
-            <p class="code-display" id="codeDisplay">${state.code}</p>
-            <button class="btn btn-secondary" id="copyBtn">Copy to clipboard</button>
+            <div class="success-icon">${ICONS.check}</div>
+            <p class="success-label">Share this code</p>
+            <p class="code-display" id="codeDisplay">${s.code}</p>
+            ${encryptNote}
+            <button class="btn btn-ghost" id="copyBtn">${ICONS.copy}<span>Copy code</span></button>
           </div>
-          <button class="btn btn-primary" id="resetSendBtn">Send another</button>
-        `;
+          <button class="btn btn-primary" id="resetSendBtn">Send more files</button>`;
 
-      case 'error':
+      case STATUS.ERROR:
         return `
           <div class="error-box">
-            <p class="error-message">${state.message}</p>
-            ${state.details ? `<details><summary>Technical details</summary><pre>${state.details}</pre></details>` : ''}
+            <div class="error-icon">${ICONS.error}</div>
+            <p class="error-message">${s.message}</p>
+            ${s.details ? `<details><summary>Details</summary><pre>${s.details}</pre></details>` : ''}
           </div>
-          <button class="btn btn-primary" id="resetSendBtn">Try again</button>
-        `;
+          <button class="btn btn-primary" id="resetSendBtn">Try again</button>`;
+
+      default:
+        return '';
     }
   }
 
-  function attachSendEventListeners(state) {
-    const dropzone = document.getElementById('dropzone');
-    const browseFilesBtn = document.getElementById('browseFilesBtn');
-    const browseFolderBtn = document.getElementById('browseFolderBtn');
-    const sendBtn = document.getElementById('sendBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const resetSendBtn = document.getElementById('resetSendBtn');
-    const codeDisplay = document.getElementById('codeDisplay');
+  function attachSendListeners(s) {
+    const dropzone = $('dropzone');
 
     if (dropzone) {
-      // Remove old listeners by cloning
-      const newDropzone = dropzone.cloneNode(true);
-      dropzone.parentNode.replaceChild(newDropzone, dropzone);
-      
-      newDropzone.addEventListener('dragenter', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.classList.add('dropzone-hover');
-      });
-      
-      newDropzone.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.classList.add('dropzone-hover');
-      });
-      
-      newDropzone.addEventListener('dragleave', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.classList.remove('dropzone-hover');
-      });
-      
-      newDropzone.addEventListener('drop', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.classList.remove('dropzone-hover');
-        
-        const files = e.dataTransfer.files;
-        if (!files || files.length === 0) return;
+      const clone = dropzone.cloneNode(true);
+      dropzone.parentNode.replaceChild(clone, dropzone);
 
-        const paths = [];
-        const names = [];
+      clone.addEventListener('dragenter', function(e) { e.preventDefault(); e.stopPropagation(); this.classList.add('dropzone-hover'); });
+      clone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); this.classList.add('dropzone-hover'); });
+      clone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); this.classList.remove('dropzone-hover'); });
+      clone.addEventListener('drop', handleDrop);
+      clone.addEventListener('click', (e) => { if (!e.target.closest('.link-btn')) browseFiles(); });
 
-        for (let i = 0; i < files.length; i++) {
-          const file = files[i];
-          if (file.path) {
-            paths.push(file.path);
-            names.push(file.name);
-          }
-        }
-
-        if (paths.length > 0) {
-          setSendState({ status: 'files-selected', paths, names });
-        }
-      });
+      clone.querySelector('#browseFilesBtn')?.addEventListener('click', (e) => { e.stopPropagation(); browseFiles(); });
+      clone.querySelector('#browseFolderBtn')?.addEventListener('click', (e) => { e.stopPropagation(); browseFolder(); });
     }
 
-    if (browseFilesBtn) {
-      browseFilesBtn.addEventListener('click', handleBrowseFiles);
-    }
+    $('sendBtn')?.addEventListener('click', handleSend);
+    $('resetSendBtn')?.addEventListener('click', clearFiles);
+    $('clearAllBtn')?.addEventListener('click', clearFiles);
 
-    if (browseFolderBtn) {
-      browseFolderBtn.addEventListener('click', handleBrowseFolder);
-    }
+    $('encryptCheck')?.addEventListener('change', (e) => {
+      setEncrypt(e.target.checked);
+    });
 
-    if (sendBtn && state.status === 'files-selected') {
-      sendBtn.addEventListener('click', handleSend);
-    }
+    $('encryptPassword')?.addEventListener('input', (e) => {
+      setPassword(e.target.value);
+    });
 
+    $('togglePassword')?.addEventListener('click', toggleShowPassword);
+
+    $('fileList')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.file-item-remove');
+      if (btn) removeFile(parseInt(btn.dataset.index, 10));
+    });
+
+    const copyBtn = $('copyBtn');
+    const codeDisplay = $('codeDisplay');
     if (copyBtn && codeDisplay) {
       copyBtn.addEventListener('click', () => {
-        window.wormhole.copyToClipboard(codeDisplay.textContent || '');
-        copyBtn.textContent = 'Copied!';
-        setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 2000);
-      });
-    }
-
-    if (resetSendBtn) {
-      resetSendBtn.addEventListener('click', () => {
-        resetSend();
+        window.wormhole.copyToClipboard(codeDisplay.textContent);
+        const span = copyBtn.querySelector('span');
+        span.textContent = 'Copied!';
+        setTimeout(() => { span.textContent = 'Copy code'; }, 2000);
       });
     }
   }
 
-  async function handleBrowseFiles() {
-    const paths = await window.wormhole.getFilePaths();
-    if (!paths || paths.length === 0) return;
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    this.classList.remove('dropzone-hover');
 
-    const names = paths.map((p) => p.split(/[/\\]/).pop() || p);
-    setSendState({ status: 'files-selected', paths, names });
+    const files = e.dataTransfer.files;
+    if (!files?.length) return;
+
+    const paths = [];
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].path) paths.push(files[i].path);
+    }
+    if (paths.length) addFiles(paths);
   }
 
-  async function handleBrowseFolder() {
-    const paths = await window.wormhole.getFolderPath();
-    if (!paths || paths.length === 0) return;
+  async function browseFiles() {
+    try {
+      const paths = await window.wormhole.getFilePaths();
+      if (paths?.length) addFiles(paths);
+    } catch (err) {
+      console.error('Failed to browse files:', err);
+    }
+  }
 
-    const names = paths.map((p) => p.split(/[/\\]/).pop() || p);
-    setSendState({ status: 'files-selected', paths, names });
+  async function browseFolder() {
+    try {
+      const paths = await window.wormhole.getFolderPath();
+      if (paths?.length) addFiles(paths);
+    } catch (err) {
+      console.error('Failed to browse folder:', err);
+    }
   }
 
   async function handleSend() {
-    const state = getState().send;
-    if (state.status !== 'files-selected') return;
+    const { items, encrypt, password } = state.send;
+    if (!items.length) return;
+    if (encrypt && password.length < MIN_PASSWORD_LENGTH) return;
 
-    const { paths } = state;
+    try {
+      setSendState({ status: STATUS.PACKAGING });
+      await new Promise(r => setTimeout(r, 100));
 
-    setSendState({ status: 'packaging' });
+      setSendState({ status: STATUS.SENDING });
+      const paths = items.map(i => i.path);
+      const result = await window.wormhole.send(paths, encrypt ? password : undefined);
 
-    await new Promise((r) => setTimeout(r, 100));
-
-    setSendState({ status: 'sending' });
-
-    const result = await window.wormhole.send(paths);
-
-    if (result.success) {
-      setSendState({ status: 'success', code: result.data.code });
-    } else {
+      if (result.success) {
+        setSendState({
+          status: STATUS.SUCCESS,
+          code: result.data.code,
+          encrypted: result.data.encrypted,
+          items: [],
+          encrypt: false,
+          password: '',
+        });
+      } else {
+        setSendState({
+          status: STATUS.ERROR,
+          message: result.error.message,
+          details: result.error.details,
+        });
+      }
+    } catch (err) {
       setSendState({
-        status: 'error',
-        message: result.error.message,
-        details: result.error.details,
+        status: STATUS.ERROR,
+        message: 'Unexpected error occurred',
+        details: err.message,
       });
     }
   }
 
-  // ============================================================
-  // RECEIVE TAB
-  // ============================================================
+  // ---------------------------------------------------------------------------
+  // Receive Tab
+  // ---------------------------------------------------------------------------
 
   let receiveContainer = null;
 
-  function initReceiveTab(element) {
-    receiveContainer = element;
-    renderReceive();
-  }
-
   function renderReceive() {
     if (!receiveContainer) return;
-
-    const state = getState().receive;
-    receiveContainer.innerHTML = getReceiveHTML(state);
-    attachReceiveEventListeners(state);
+    const s = state.receive;
+    receiveContainer.innerHTML = getReceiveHTML(s);
+    attachReceiveListeners(s);
   }
 
-  function getReceiveHTML(state) {
-    switch (state.status) {
-      case 'idle':
-        return `
-          <div class="input-group">
-            <input type="text" class="input" id="codeInput" placeholder="Enter wormhole code (e.g., 7-guitar-piano)">
-          </div>
-          <button class="btn btn-primary" id="receiveBtn" disabled>Receive</button>
-        `;
+  function getReceiveHTML(s) {
+    const inputValue = s.code || '';
+    const inputHtml = `<input type="text" class="input" id="codeInput" placeholder="Enter wormhole code" value="${inputValue}">`;
 
-      case 'code-entered':
+    switch (s.status) {
+      case STATUS.IDLE:
+      case STATUS.CODE_ENTERED:
         return `
-          <div class="input-group">
-            <input type="text" class="input" id="codeInput" value="${state.code}">
+          <div class="receive-container">
+            <div class="receive-icon">${ICONS.download}</div>
+            <div class="input-group">${inputHtml}</div>
           </div>
-          <button class="btn btn-primary" id="receiveBtn">Receive</button>
-        `;
+          <button class="btn btn-primary" id="receiveBtn" ${s.status === STATUS.IDLE ? 'disabled' : ''}>Receive</button>`;
 
-      case 'receiving':
-        return `
-          <div class="status-box">
-            <div class="spinner"></div>
-            <p>Receiving file...</p>
-          </div>
-          <button class="btn btn-primary" disabled>Receive</button>
-        `;
+      case STATUS.RECEIVING:
+        return `<div class="status-box"><div class="spinner"></div><p class="status-text">Connecting...</p></div>`;
 
-      case 'success':
+      case STATUS.SUCCESS:
         return `
           <div class="success-box">
-            <p class="success-label">File received:</p>
-            <p class="filename">${state.filename}</p>
-            <p class="filepath">${state.path}</p>
-            <button class="btn btn-secondary" id="openFolderBtn">Open folder</button>
+            <div class="success-icon">${ICONS.check}</div>
+            <p class="filename">${s.filename}</p>
+            <p class="filepath">${s.path}</p>
+            <button class="btn btn-ghost" id="openFolderBtn">${ICONS.folder}<span>Show in folder</span></button>
           </div>
-          <button class="btn btn-primary" id="resetReceiveBtn">Receive another</button>
-        `;
+          <button class="btn btn-primary" id="resetReceiveBtn">Receive more</button>`;
 
-      case 'error':
+      case STATUS.ERROR:
         return `
           <div class="error-box">
-            <p class="error-message">${state.message}</p>
-            ${state.details ? `<details><summary>Technical details</summary><pre>${state.details}</pre></details>` : ''}
+            <div class="error-icon">${ICONS.error}</div>
+            <p class="error-message">${s.message}</p>
+            ${s.details ? `<details><summary>Details</summary><pre>${s.details}</pre></details>` : ''}
           </div>
-          <button class="btn btn-primary" id="resetReceiveBtn">Try again</button>
-        `;
+          <button class="btn btn-primary" id="resetReceiveBtn">Try again</button>`;
+
+      default:
+        return '';
     }
   }
 
-  function attachReceiveEventListeners(state) {
-    const codeInput = document.getElementById('codeInput');
-    const receiveBtn = document.getElementById('receiveBtn');
-    const openFolderBtn = document.getElementById('openFolderBtn');
-    const resetReceiveBtn = document.getElementById('resetReceiveBtn');
+  function attachReceiveListeners(s) {
+    const codeInput = $('codeInput');
+    const receiveBtn = $('receiveBtn');
 
     if (codeInput) {
       codeInput.addEventListener('input', () => {
         const code = codeInput.value.trim();
-        if (code) {
-          setReceiveState({ status: 'code-entered', code });
-        } else {
-          setReceiveState({ status: 'idle' });
-        }
-        const btn = document.getElementById('receiveBtn');
-        if (btn) {
-          btn.disabled = !code;
-        }
+        setReceiveState(code ? { status: STATUS.CODE_ENTERED, code } : { status: STATUS.IDLE });
+        if (receiveBtn) receiveBtn.disabled = !code;
+      });
+      codeInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && codeInput.value.trim()) handleReceive();
       });
     }
 
-    if (receiveBtn && state.status === 'code-entered') {
-      receiveBtn.addEventListener('click', handleReceive);
-    }
-
-    if (openFolderBtn && state.status === 'success') {
-      openFolderBtn.addEventListener('click', () => {
-        window.wormhole.openFolder(state.path);
-      });
-    }
-
-    if (resetReceiveBtn) {
-      resetReceiveBtn.addEventListener('click', () => {
-        resetReceive();
-      });
-    }
+    receiveBtn?.addEventListener('click', handleReceive);
+    $('openFolderBtn')?.addEventListener('click', () => window.wormhole.openFolder(s.path));
+    $('resetReceiveBtn')?.addEventListener('click', () => setReceiveState({ status: STATUS.IDLE }));
   }
 
   async function handleReceive() {
-    const state = getState().receive;
-    if (state.status !== 'code-entered') return;
+    const { code } = state.receive;
+    if (!code) return;
 
-    const { code } = state;
+    try {
+      setReceiveState({ status: STATUS.RECEIVING });
+      const result = await window.wormhole.receive(code);
 
-    setReceiveState({ status: 'receiving' });
-
-    const result = await window.wormhole.receive(code);
-
-    if (result.success) {
-      setReceiveState({
-        status: 'success',
-        filename: result.data.filename,
-        path: result.data.savedPath,
-      });
-    } else {
-      setReceiveState({
-        status: 'error',
-        message: result.error.message,
-        details: result.error.details,
-      });
+      if (result.success) {
+        setReceiveState({ status: STATUS.SUCCESS, filename: result.data.filename, path: result.data.savedPath });
+      } else {
+        setReceiveState({ status: STATUS.ERROR, message: result.error.message, details: result.error.details });
+      }
+    } catch (err) {
+      setReceiveState({ status: STATUS.ERROR, message: 'Unexpected error occurred', details: err.message });
     }
   }
 
-  // ============================================================
-  // MAIN INITIALIZATION
-  // ============================================================
-
-  let tabSend = null;
-  let tabReceive = null;
-  let contentSend = null;
-  let contentReceive = null;
-  let dockerOverlay = null;
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    tabSend = document.getElementById('tabSend');
-    tabReceive = document.getElementById('tabReceive');
-    contentSend = document.getElementById('contentSend');
-    contentReceive = document.getElementById('contentReceive');
-    dockerOverlay = document.getElementById('dockerOverlay');
-
-    tabSend?.addEventListener('click', () => setTab('send'));
-    tabReceive?.addEventListener('click', () => setTab('receive'));
-
-    if (contentSend) initSendTab(contentSend);
-    if (contentReceive) initReceiveTab(contentReceive);
-
-    subscribe(handleStateChange);
-
-    await checkDocker();
-  });
+  // ---------------------------------------------------------------------------
+  // Main
+  // ---------------------------------------------------------------------------
 
   function handleStateChange() {
-    const state = getState();
+    const tabSend = $('tabSend');
+    const tabReceive = $('tabReceive');
+    const contentSend = $('contentSend');
+    const contentReceive = $('contentReceive');
+    const dockerOverlay = $('dockerOverlay');
 
     tabSend?.classList.toggle('active', state.tab === 'send');
     tabReceive?.classList.toggle('active', state.tab === 'receive');
-
     contentSend?.classList.toggle('hidden', state.tab !== 'send');
     contentReceive?.classList.toggle('hidden', state.tab !== 'receive');
 
     if (dockerOverlay) {
-      dockerOverlay.classList.toggle('hidden', state.docker === 'available');
-      
-      if (state.docker === 'checking') {
+      dockerOverlay.classList.toggle('hidden', state.docker === DOCKER.AVAILABLE);
+      if (state.docker === DOCKER.CHECKING) {
         dockerOverlay.innerHTML = '<div class="spinner"></div><p>Checking Docker...</p>';
-      } else if (state.docker === 'unavailable') {
-        dockerOverlay.innerHTML = `
-          <p class="error-message">Docker is not available</p>
-          <button class="btn btn-primary" id="retryDockerBtn">Retry</button>
-        `;
-        document.getElementById('retryDockerBtn')?.addEventListener('click', checkDocker);
+      } else if (state.docker === DOCKER.UNAVAILABLE) {
+        dockerOverlay.innerHTML = '<p class="error-message">Docker is not available</p><button class="btn btn-primary" id="retryDockerBtn">Retry</button>';
+        $('retryDockerBtn')?.addEventListener('click', checkDocker);
       }
     }
 
-    if (state.tab === 'send') {
-      renderSend();
-    } else {
-      renderReceive();
-    }
+    state.tab === 'send' ? renderSend() : renderReceive();
   }
 
   async function checkDocker() {
-    setDockerState('checking');
-
-    const result = await window.wormhole.checkDocker();
-
-    if (result.success && result.data.available) {
-      setDockerState('available');
-    } else {
-      setDockerState('unavailable');
+    setState({ docker: DOCKER.CHECKING });
+    try {
+      const result = await window.wormhole.checkDocker();
+      setState({ docker: result.success && result.data.available ? DOCKER.AVAILABLE : DOCKER.UNAVAILABLE });
+    } catch (err) {
+      console.error('Docker check failed:', err);
+      setState({ docker: DOCKER.UNAVAILABLE });
     }
   }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    sendContainer = $('contentSend');
+    receiveContainer = $('contentReceive');
+
+    $('tabSend')?.addEventListener('click', () => setState({ tab: 'send' }));
+    $('tabReceive')?.addEventListener('click', () => setState({ tab: 'receive' }));
+
+    subscribe(handleStateChange);
+    handleStateChange();
+
+    await checkDocker();
+  });
 
 })();

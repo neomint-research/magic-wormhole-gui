@@ -22,7 +22,7 @@ import { createArchive, needsArchiving } from './archiver';
  * Returns the code as soon as it's generated (doesn't wait for transfer to complete).
  */
 export async function send(request: SendRequest): Promise<Result<SendResponse>> {
-  const { paths } = request;
+  const { paths, password } = request;
 
   // Validation
   if (!paths || paths.length === 0) {
@@ -52,11 +52,12 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
   let filePath: string;
   let archiveUsed = false;
   let archivePath: string | undefined;
+  let encrypted = false;
 
-  // Archive if needed
-  if (needsArchiving(paths)) {
-    const archiveResult = await createArchive(paths);
-    
+  // Archive if needed (multiple files, directory, or encryption)
+  if (needsArchiving(paths, password)) {
+    const archiveResult = await createArchive(paths, { password });
+
     if (!archiveResult.success) {
       return archiveResult;
     }
@@ -64,6 +65,7 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
     filePath = archiveResult.data.archivePath;
     archiveUsed = true;
     archivePath = filePath;
+    encrypted = archiveResult.data.encrypted;
   } else {
     filePath = paths[0];
   }
@@ -89,6 +91,7 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
       code: result.data.code,
       archiveUsed,
       archivePath,
+      encrypted,
     },
   };
 }

@@ -4,11 +4,12 @@ A simple desktop GUI for [Magic Wormhole](https://magic-wormhole.readthedocs.io/
 
 ## Features
 
-- Send files and folders via Magic Wormhole
-- Receive files using wormhole codes
-- Automatic archiving for multiple files/folders
-- Drag and drop support
-- Cross-platform (Windows, macOS, Linux)
+- **Send files and folders** via Magic Wormhole
+- **Receive files** using wormhole codes
+- **AES-256 encryption** - Optional password protection for transfers
+- **Automatic archiving** for multiple files/folders
+- **Drag and drop** support with multi-file selection
+- **Cross-platform** (Windows, macOS, Linux)
 
 ## Requirements
 
@@ -78,26 +79,54 @@ The packaged application will be in the `dist/` folder.
 
 ## How It Works
 
-1. **Send**: Select files or folders, click Send, and share the generated wormhole code with the recipient.
+### Sending Files
 
-2. **Receive**: Enter a wormhole code to download the shared file.
+1. Drop files/folders onto the dropzone or click to browse
+2. Add multiple files - they accumulate in a list (up to 100 items)
+3. **Optional**: Enable encryption and enter a password (min. 4 characters)
+4. Click **Send** (or **Encrypt & Send** if encryption is enabled)
+5. Share the generated wormhole code with the recipient
 
-All transfers are end-to-end encrypted using the Magic Wormhole protocol. Files are transferred directly between peers via a relay server.
+### Receiving Files
+
+1. Switch to the **Receive** tab
+2. Enter the wormhole code
+3. Click **Receive** - the file downloads automatically
+
+### Encryption
+
+When encryption is enabled:
+- Files are packaged into an AES-256 encrypted ZIP archive
+- The recipient receives the encrypted archive via wormhole
+- To extract: use any standard tool (7-Zip, WinRAR, macOS Archive Utility) with the password
+- The password must be shared separately (not transmitted via wormhole)
+
+All transfers are additionally end-to-end encrypted using the Magic Wormhole protocol. Files are transferred directly between peers via a relay server.
 
 ## Architecture
 
 The application uses Electron with a secure architecture:
 
-- **Main Process**: Handles Docker interactions and file operations
-- **Renderer Process**: Provides the user interface
+- **Main Process**: Handles Docker interactions, archiving, and file operations
+- **Renderer Process**: Provides the user interface (vanilla JS)
 - **Preload Script**: Exposes a limited API via context bridge
 - **Docker Container**: Runs the Magic Wormhole CLI in isolation
 
-Security features:
+### Security Features
+
 - Context isolation enabled
 - Node integration disabled
 - Sandboxed renderer process
 - Content Security Policy headers
+- AES-256 encryption for password-protected transfers
+
+### Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `archiver` | ZIP archive creation |
+| `archiver-zip-encrypted` | AES-256 encrypted archives |
+| `electron` | Desktop application framework |
 
 ## Project Structure
 
@@ -105,11 +134,11 @@ Security features:
 magic-wormhole-gui/
 ├── src/
 │   ├── main/           # Electron main process
-│   │   ├── services/   # Docker and wormhole services
+│   │   ├── services/   # Docker, wormhole, and archiver services
 │   │   ├── utils/      # Path and process utilities
 │   │   └── ipc/        # IPC handlers
 │   ├── preload/        # Context bridge API
-│   ├── renderer/       # UI components
+│   ├── renderer/       # UI (HTML, CSS, vanilla JS)
 │   └── shared/         # Types and constants
 ├── docker/             # Dockerfile for wormhole-cli
 ├── assets/             # Application icons
@@ -147,6 +176,10 @@ The app may take a few seconds on first launch. If it persists:
 1. Restart Docker Desktop
 2. Check Docker is responsive: `docker ps`
 
+### Drag and drop not working
+
+On Windows, drag and drop fails when running the app with elevated privileges (Administrator). This is due to Windows UIPI (User Interface Privilege Isolation). Run the app from a non-Administrator terminal.
+
 ### Transfer timeout
 
 The default timeout is 120 seconds. For large files:
@@ -171,3 +204,4 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole) by Brian Warner
 - [Electron](https://www.electronjs.org/)
+- [archiver-zip-encrypted](https://github.com/artem-karpenko/archiver-zip-encrypted) for AES-256 support
