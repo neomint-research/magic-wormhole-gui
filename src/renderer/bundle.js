@@ -1,6 +1,31 @@
 (function() {
   'use strict';
 
+  // ---------------------------------------------------------------------------
+  // Theme Management
+  // ---------------------------------------------------------------------------
+
+  const THEME_KEY = 'wormhole-theme';
+
+  function getPreferredTheme() {
+    const stored = localStorage.getItem(THEME_KEY);
+    if (stored) return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'light';
+    setTheme(current === 'dark' ? 'light' : 'dark');
+  }
+
+  // Apply theme immediately to prevent flash
+  setTheme(getPreferredTheme());
+
   // Global drag & drop - Chromium blocks drops without this
   document.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); });
   document.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); });
@@ -500,6 +525,7 @@
 
     $('tabSend')?.addEventListener('click', () => setState({ tab: 'send' }));
     $('tabReceive')?.addEventListener('click', () => setState({ tab: 'receive' }));
+    $('themeToggle')?.addEventListener('click', toggleTheme);
 
     subscribe(handleStateChange);
     handleStateChange();
