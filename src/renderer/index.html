@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wormhole</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <nav class="tabs">
+      <button class="tab active" id="tabSend">Send</button>
+      <button class="tab" id="tabReceive">Receive</button>
+    </nav>
+
+    <main class="content">
+      <div id="contentSend"></div>
+      <div id="contentReceive" class="hidden"></div>
+    </main>
+
+    <div id="dockerOverlay" class="overlay">
+      <div class="spinner"></div>
+      <p>Checking Docker...</p>
+    </div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
