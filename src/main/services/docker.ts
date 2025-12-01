@@ -1,6 +1,10 @@
+import { spawn, ChildProcess } from 'child_process';
 import { Result, DockerStatus, ErrorCode } from '../../shared/types';
-import { ERROR_MESSAGES, DOCKER_IMAGE, DOCKER_CHECK_TIMEOUT_MS } from '../../shared/constants';
+import { ERROR_MESSAGES, DOCKER_IMAGE, DOCKER_CHECK_TIMEOUT_MS, WORMHOLE_CODE_REGEX } from '../../shared/constants';
 import { spawnWithTimeout } from '../utils/process';
+
+// Track active send processes for cleanup
+let activeSendProcess: ChildProcess | null = null;
 
 /**
  * Checks if Docker is available and running.
@@ -71,6 +75,7 @@ export async function checkDocker(): Promise<Result<DockerStatus>> {
 
 /**
  * Runs a docker command with the wormhole-cli image.
+ * Waits for process to complete.
  */
 export async function runDockerCommand(
   args: string[],
@@ -120,4 +125,134 @@ export async function runDockerCommand(
       stderr: result.stderr,
     },
   };
+}
+
+/**
+ * Runs wormhole send and returns the code as soon as it's available.
+ * The process continues running in the background until transfer completes.
+ */
+export function runDockerSend(
+  filePath: string,
+  volumeMount: { hostPath: string; containerPath: string },
+  timeoutMs: number
+): Promise<Result<{ code: string }>> {
+  return new Promise((resolve) => {
+    // Kill any previous send process
+    if (activeSendProcess) {
+      activeSendProcess.kill();
+      activeSendProcess = null;
+    }
+
+    const volumeArg = `${volumeMount.hostPath}:${volumeMount.containerPath}:ro`;
+
+    const dockerArgs = [
+      'run',
+      '--rm',
+      '-v',
+      volumeArg,
+      DOCKER_IMAGE,
+      'wormhole',
+      'send',
+      filePath,
+    ];
+
+    const proc = spawn('docker', dockerArgs, {
+      shell: false,
+      windowsHide: true,
+    });
+
+    activeSendProcess = proc;
+
+    let stdout = '';
+    let stderr = '';
+    let resolved = false;
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        activeSendProcess = null;
+        resolve({
+          success: false,
+          error: {
+            code: ErrorCode.DOCKER_TIMEOUT,
+            message: ERROR_MESSAGES[ErrorCode.DOCKER_TIMEOUT],
+          },
+        });
+      }
+    }, timeoutMs);
+
+    const checkForCode = (data: string) => {
+      if (resolved) return;
+
+      const combined = stdout + stderr + data;
+      const match = combined.match(WORMHOLE_CODE_REGEX);
+
+      if (match) {
+        resolved = true;
+        clearTimeout(timeout);
+        // Don't kill process - let it wait for receiver
+        resolve({
+          success: true,
+          data: {
+            code: match[1],
+          },
+        });
+      }
+    };
+
+    proc.stdout.on('data', (data: Buffer) => {
+      const str = data.toString();
+      stdout += str;
+      checkForCode(str);
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const str = data.toString();
+      stderr += str;
+      checkForCode(str);
+    });
+
+    proc.on('error', (err) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        activeSendProcess = null;
+        resolve({
+          success: false,
+          error: {
+            code: ErrorCode.DOCKER_EXIT_NONZERO,
+            message: ERROR_MESSAGES[ErrorCode.DOCKER_EXIT_NONZERO],
+            details: err.message,
+          },
+        });
+      }
+    });
+
+    proc.on('close', (exitCode) => {
+      activeSendProcess = null;
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        resolve({
+          success: false,
+          error: {
+            code: ErrorCode.CODE_PARSE_FAILED,
+            message: ERROR_MESSAGES[ErrorCode.CODE_PARSE_FAILED],
+            details: `Process exited with code ${exitCode}. Output: ${(stdout + stderr).substring(0, 500)}`,
+          },
+        });
+      }
+    });
+  });
+}
+
+/**
+ * Cancels any active send operation.
+ */
+export function cancelSend(): void {
+  if (activeSendProcess) {
+    activeSendProcess.kill();
+    activeSendProcess = null;
+  }
 }

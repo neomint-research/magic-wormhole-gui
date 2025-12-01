@@ -23,13 +23,30 @@ export function registerIpcHandlers(): void {
     return receive({ code });
   });
 
-  // File picker dialog
+  // File picker dialog - files and folders with multi-selection
   ipcMain.handle('dialog:openFiles', async () => {
+    // On Windows, openFile + openDirectory together doesn't work well
+    // Use openFile with multiSelections, user can select folders too
     const result = await dialog.showOpenDialog({
-      properties: ['openFile', 'openDirectory', 'multiSelections'],
+      properties: ['openFile', 'multiSelections'],
+      title: 'Select files to send',
     });
 
-    if (result.canceled) {
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+
+    return result.filePaths;
+  });
+
+  // Folder picker dialog - separate handler for folders
+  ipcMain.handle('dialog:openFolder', async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Select folder to send',
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
       return null;
     }
 

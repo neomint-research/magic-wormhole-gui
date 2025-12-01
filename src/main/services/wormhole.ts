@@ -10,16 +10,16 @@ import {
 } from '../../shared/types';
 import {
   ERROR_MESSAGES,
-  WORMHOLE_CODE_REGEX,
   CODE_VALIDATION_REGEX,
   WORMHOLE_TIMEOUT_MS,
 } from '../../shared/constants';
 import { toDockerPath, createReceiveSubdir, getFirstFileInDir } from '../utils/paths';
-import { runDockerCommand } from './docker';
+import { runDockerCommand, runDockerSend } from './docker';
 import { createArchive, needsArchiving } from './archiver';
 
 /**
  * Sends files via wormhole.
+ * Returns the code as soon as it's generated (doesn't wait for transfer to complete).
  */
 export async function send(request: SendRequest): Promise<Result<SendResponse>> {
   const { paths } = request;
@@ -72,10 +72,10 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
   const hostDir = path.dirname(filePath);
   const dockerDir = toDockerPath(hostDir);
 
-  // Run wormhole send
-  const result = await runDockerCommand(
-    ['wormhole', 'send', `/data/${fileName}`],
-    { hostPath: dockerDir, containerPath: '/data', readOnly: true },
+  // Run wormhole send - returns immediately when code is available
+  const result = await runDockerSend(
+    `/data/${fileName}`,
+    { hostPath: dockerDir, containerPath: '/data' },
     WORMHOLE_TIMEOUT_MS
   );
 
@@ -83,25 +83,10 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
     return result;
   }
 
-  // Parse wormhole code from output
-  const output = result.data.stdout + result.data.stderr;
-  const match = output.match(WORMHOLE_CODE_REGEX);
-
-  if (!match) {
-    return {
-      success: false,
-      error: {
-        code: ErrorCode.CODE_PARSE_FAILED,
-        message: ERROR_MESSAGES[ErrorCode.CODE_PARSE_FAILED],
-        details: output.substring(0, 500),
-      },
-    };
-  }
-
   return {
     success: true,
     data: {
-      code: match[1],
+      code: result.data.code,
       archiveUsed,
       archivePath,
     },
