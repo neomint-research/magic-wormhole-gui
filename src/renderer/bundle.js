@@ -5,6 +5,16 @@
 (function() {
   'use strict';
 
+  // Enable drag & drop globally - Chromium blocks drops by default
+  document.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  document.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
   // ============================================================
   // STATE
   // ============================================================
@@ -71,6 +81,7 @@
   // ============================================================
 
   let sendContainer = null;
+  let dropzoneListenersAttached = false;
 
   function initSendTab(element) {
     sendContainer = element;
@@ -91,7 +102,11 @@
         return `
           <div class="dropzone" id="dropzone">
             <p class="dropzone-text">Drop files or folders here</p>
-            <p class="dropzone-subtext">or click to browse</p>
+            <p class="dropzone-subtext">or use buttons below</p>
+          </div>
+          <div class="button-row">
+            <button class="btn btn-secondary" id="browseFilesBtn">Select Files</button>
+            <button class="btn btn-secondary" id="browseFolderBtn">Select Folder</button>
           </div>
           <button class="btn btn-primary" id="sendBtn" disabled>Send</button>
         `;
@@ -104,6 +119,10 @@
           <div class="dropzone dropzone-selected" id="dropzone">
             <p class="dropzone-text">${state.names.length} item(s) selected</p>
             <p class="dropzone-subtext">${displayText}</p>
+          </div>
+          <div class="button-row">
+            <button class="btn btn-secondary" id="browseFilesBtn">Select Files</button>
+            <button class="btn btn-secondary" id="browseFolderBtn">Select Folder</button>
           </div>
           <button class="btn btn-primary" id="sendBtn">Send</button>
         `;
@@ -133,7 +152,7 @@
             <p class="code-display" id="codeDisplay">${state.code}</p>
             <button class="btn btn-secondary" id="copyBtn">Copy to clipboard</button>
           </div>
-          <button class="btn btn-primary" id="resetBtn">Send another</button>
+          <button class="btn btn-primary" id="resetSendBtn">Send another</button>
         `;
 
       case 'error':
@@ -142,22 +161,74 @@
             <p class="error-message">${state.message}</p>
             ${state.details ? `<details><summary>Technical details</summary><pre>${state.details}</pre></details>` : ''}
           </div>
-          <button class="btn btn-primary" id="resetBtn">Try again</button>
+          <button class="btn btn-primary" id="resetSendBtn">Try again</button>
         `;
     }
   }
 
   function attachSendEventListeners(state) {
     const dropzone = document.getElementById('dropzone');
+    const browseFilesBtn = document.getElementById('browseFilesBtn');
+    const browseFolderBtn = document.getElementById('browseFolderBtn');
     const sendBtn = document.getElementById('sendBtn');
     const copyBtn = document.getElementById('copyBtn');
-    const resetBtn = document.getElementById('resetBtn');
+    const resetSendBtn = document.getElementById('resetSendBtn');
     const codeDisplay = document.getElementById('codeDisplay');
 
-    if (dropzone && (state.status === 'idle' || state.status === 'files-selected')) {
-      dropzone.addEventListener('click', handleBrowse);
-      dropzone.addEventListener('dragover', handleDragOver);
-      dropzone.addEventListener('drop', handleDrop);
+    if (dropzone) {
+      // Remove old listeners by cloning
+      const newDropzone = dropzone.cloneNode(true);
+      dropzone.parentNode.replaceChild(newDropzone, dropzone);
+      
+      newDropzone.addEventListener('dragenter', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.add('dropzone-hover');
+      });
+      
+      newDropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.add('dropzone-hover');
+      });
+      
+      newDropzone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('dropzone-hover');
+      });
+      
+      newDropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('dropzone-hover');
+        
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        const paths = [];
+        const names = [];
+
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.path) {
+            paths.push(file.path);
+            names.push(file.name);
+          }
+        }
+
+        if (paths.length > 0) {
+          setSendState({ status: 'files-selected', paths, names });
+        }
+      });
+    }
+
+    if (browseFilesBtn) {
+      browseFilesBtn.addEventListener('click', handleBrowseFiles);
+    }
+
+    if (browseFolderBtn) {
+      browseFolderBtn.addEventListener('click', handleBrowseFolder);
     }
 
     if (sendBtn && state.status === 'files-selected') {
@@ -172,50 +243,27 @@
       });
     }
 
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
+    if (resetSendBtn) {
+      resetSendBtn.addEventListener('click', () => {
         resetSend();
-        renderSend();
       });
     }
   }
 
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const files = e.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-
-    const paths = [];
-    const names = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.path) {
-        paths.push(file.path);
-        names.push(file.name);
-      }
-    }
-
-    if (paths.length > 0) {
-      setSendState({ status: 'files-selected', paths, names });
-      renderSend();
-    }
-  }
-
-  async function handleBrowse() {
+  async function handleBrowseFiles() {
     const paths = await window.wormhole.getFilePaths();
     if (!paths || paths.length === 0) return;
 
     const names = paths.map((p) => p.split(/[/\\]/).pop() || p);
     setSendState({ status: 'files-selected', paths, names });
-    renderSend();
+  }
+
+  async function handleBrowseFolder() {
+    const paths = await window.wormhole.getFolderPath();
+    if (!paths || paths.length === 0) return;
+
+    const names = paths.map((p) => p.split(/[/\\]/).pop() || p);
+    setSendState({ status: 'files-selected', paths, names });
   }
 
   async function handleSend() {
@@ -225,12 +273,10 @@
     const { paths } = state;
 
     setSendState({ status: 'packaging' });
-    renderSend();
 
     await new Promise((r) => setTimeout(r, 100));
 
     setSendState({ status: 'sending' });
-    renderSend();
 
     const result = await window.wormhole.send(paths);
 
@@ -243,8 +289,6 @@
         details: result.error.details,
       });
     }
-
-    renderSend();
   }
 
   // ============================================================
@@ -301,7 +345,7 @@
             <p class="filepath">${state.path}</p>
             <button class="btn btn-secondary" id="openFolderBtn">Open folder</button>
           </div>
-          <button class="btn btn-primary" id="resetBtn">Receive another</button>
+          <button class="btn btn-primary" id="resetReceiveBtn">Receive another</button>
         `;
 
       case 'error':
@@ -310,7 +354,7 @@
             <p class="error-message">${state.message}</p>
             ${state.details ? `<details><summary>Technical details</summary><pre>${state.details}</pre></details>` : ''}
           </div>
-          <button class="btn btn-primary" id="resetBtn">Try again</button>
+          <button class="btn btn-primary" id="resetReceiveBtn">Try again</button>
         `;
     }
   }
@@ -319,7 +363,7 @@
     const codeInput = document.getElementById('codeInput');
     const receiveBtn = document.getElementById('receiveBtn');
     const openFolderBtn = document.getElementById('openFolderBtn');
-    const resetBtn = document.getElementById('resetBtn');
+    const resetReceiveBtn = document.getElementById('resetReceiveBtn');
 
     if (codeInput) {
       codeInput.addEventListener('input', () => {
@@ -346,10 +390,9 @@
       });
     }
 
-    if (resetBtn) {
-      resetBtn.addEventListener('click', () => {
+    if (resetReceiveBtn) {
+      resetReceiveBtn.addEventListener('click', () => {
         resetReceive();
-        renderReceive();
       });
     }
   }
@@ -361,7 +404,6 @@
     const { code } = state;
 
     setReceiveState({ status: 'receiving' });
-    renderReceive();
 
     const result = await window.wormhole.receive(code);
 
@@ -378,8 +420,6 @@
         details: result.error.details,
       });
     }
-
-    renderReceive();
   }
 
   // ============================================================
