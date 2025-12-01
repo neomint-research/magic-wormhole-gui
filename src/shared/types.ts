@@ -126,6 +126,7 @@ export interface WormholeAPI {
   receive: (code: string) => Promise<Result<ReceiveResponse>>;
   checkDocker: () => Promise<Result<DockerStatus>>;
   getFilePaths: () => Promise<string[] | null>;
+  getFolderPath: () => Promise<string[] | null>;
   openFolder: (path: string) => Promise<void>;
   copyToClipboard: (text: string) => Promise<void>;
 }

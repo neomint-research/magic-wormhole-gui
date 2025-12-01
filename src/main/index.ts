@@ -7,7 +7,7 @@ let mainWindow: BrowserWindow | null = null;
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 480,
-    height: 400,
+    height: 450,
     resizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -15,7 +15,7 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,  // Required for file.path access in drag & drop
       preload: path.join(__dirname, '../preload/index.js'),
     },
   });

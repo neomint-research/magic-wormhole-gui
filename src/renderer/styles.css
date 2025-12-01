@@ -79,15 +79,14 @@ body {
   justify-content: center;
   border: 2px dashed #e0e0e0;
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s;
   margin-bottom: 16px;
-  min-height: 180px;
+  min-height: 120px;
 }
 
-.dropzone:hover {
+.dropzone-hover {
   border-color: #2563eb;
-  background: #f8fafc;
+  background: #eff6ff;
 }
 
 .dropzone-selected {
@@ -161,11 +160,24 @@ body {
 .btn-secondary {
   background: #f5f5f5;
   color: #1a1a1a;
-  margin-bottom: 12px;
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: #ebebeb;
+}
+
+/* ============================================================
+   BUTTON ROW
+   ============================================================ */
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.button-row .btn {
+  flex: 1;
 }
 
 /* ============================================================

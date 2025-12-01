@@ -18,6 +18,10 @@ const api: WormholeAPI = {
     return ipcRenderer.invoke('dialog:openFiles');
   },
 
+  getFolderPath: (): Promise<string[] | null> => {
+    return ipcRenderer.invoke('dialog:openFolder');
+  },
+
   openFolder: (path: string): Promise<void> => {
     return ipcRenderer.invoke('shell:openFolder', path);
   },
