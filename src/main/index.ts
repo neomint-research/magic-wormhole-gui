@@ -7,8 +7,12 @@ let mainWindow: BrowserWindow | null = null;
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 480,
-    height: 450,
-    resizable: false,
+    height: 520,
+    minWidth: 360,
+    minHeight: 420,
+    maxWidth: 800,
+    maxHeight: 900,
+    resizable: true,
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
