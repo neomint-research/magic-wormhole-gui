@@ -153,6 +153,7 @@ body {
 .dropzone-text { font-size: 15px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; }
 .dropzone-text-small { font-size: 13px; color: var(--text-muted); }
 .dropzone-subtext { font-size: 13px; color: var(--text-faint); }
+.dropzone-selected { cursor: pointer; }
 
 /* Link Buttons */
 .link-btn {
@@ -282,6 +283,29 @@ body {
   box-shadow: 0 1px 2px rgba(37,99,235,0.2);
   transition-duration: 0.1s;
 }
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-primary);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--hover-bg-strong);
+  transform: translateY(-1px);
+}
+.btn-tertiary {
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 8px;
+  margin-top: 8px;
+}
+.btn-tertiary:hover:not(:disabled) {
+  color: var(--text-secondary);
+  background: var(--hover-bg);
+}
+.btn-success {
+  background: var(--success) !important;
+}
 .btn-ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   width: auto; padding: 10px 16px; background: transparent; color: var(--text-tertiary);
@@ -403,89 +427,6 @@ details pre {
 .overlay.hidden { display: none; }
 .overlay p { color: var(--text-tertiary); }
 
-/* Encryption Row */
-.encrypt-row {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-  padding: 12px 14px; background: var(--bg-tertiary); border-radius: 10px;
-  transition: all 0.2s ease-out;
-}
-.encrypt-row:has(input[type="checkbox"]:checked) {
-  background: var(--accent-purple-bg);
-}
-.encrypt-toggle {
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
-  font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap;
-  transition: color 0.15s ease-out;
-}
-.encrypt-toggle:hover { color: var(--text-primary); }
-.encrypt-toggle input[type="checkbox"] {
-  width: 18px; height: 18px; margin: 0; cursor: pointer;
-  accent-color: var(--accent-purple);
-  transition: transform 0.15s ease-out;
-}
-.encrypt-toggle input[type="checkbox"]:hover { transform: scale(1.1); }
-.encrypt-label {
-  display: flex; align-items: center; gap: 6px;
-}
-.encrypt-label svg { color: var(--text-muted); transition: all 0.2s ease-out; }
-.encrypt-toggle:has(input:checked) .encrypt-label svg { color: var(--accent-purple); transform: scale(1.1); }
-
-/* Password Input */
-.encrypt-password {
-  flex: 1; padding: 10px 12px; font-size: 13px; text-align: left;
-  border: 1px solid var(--border-primary); border-radius: 8px; outline: none;
-  background: var(--bg-input); color: var(--text-primary); 
-  transition: all 0.2s ease-out; min-width: 0;
-  padding-right: 38px;
-}
-.encrypt-password:focus {
-  border-color: var(--accent-purple); 
-  box-shadow: 0 0 0 2px rgba(124,58,237,0.15);
-}
-.encrypt-password::placeholder { color: var(--text-placeholder); }
-
-/* Password Wrapper */
-.password-wrapper {
-  flex: 1; position: relative; display: flex; align-items: center; min-width: 0;
-  animation: passwordSlideIn 0.2s ease-out;
-}
-@keyframes passwordSlideIn {
-  from { opacity: 0; transform: translateX(-10px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-.password-wrapper.hidden { display: none; }
-.password-toggle {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; padding: 4px; cursor: pointer;
-  color: var(--text-faint); border-radius: 4px; display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s ease-out;
-}
-.password-toggle:hover { color: var(--text-secondary); background: var(--hover-bg-strong); }
-.password-toggle:active { transform: translateY(-50%) scale(0.9); }
-
-/* Encrypt Button Variant */
-.btn-encrypt {
-  background: linear-gradient(180deg, var(--accent-purple-light) 0%, var(--accent-purple) 100%);
-  box-shadow: 0 1px 2px rgba(124,58,237,0.2), 0 2px 8px rgba(124,58,237,0.15);
-}
-.btn-encrypt:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--accent-purple) 0%, var(--accent-purple-dark) 100%);
-  box-shadow: 0 4px 8px rgba(124,58,237,0.25), 0 6px 20px rgba(124,58,237,0.2);
-}
-
-/* Encrypt Note */
-.encrypt-note {
-  display: flex; align-items: center; gap: 6px;
-  font-size: 12px; color: var(--accent-purple); margin-bottom: 12px;
-  padding: 8px 12px; background: var(--accent-purple-bg); border-radius: 8px;
-  animation: noteSlideIn 0.3s ease-out 0.4s both;
-}
-@keyframes noteSlideIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.encrypt-note svg { flex-shrink: 0; }
-
 /* Scrollbar - Premium Custom */
 .file-list::-webkit-scrollbar { 
   width: 8px; 
@@ -536,6 +477,154 @@ details pre {
 button:focus:not(:focus-visible) { outline: none; }
 
 /* ============================================================
+   ENCRYPTION UI
+   ============================================================ */
+
+/* Encrypt Row - Container for checkbox and password */
+.encrypt-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  border: 1px solid var(--border-tertiary);
+}
+
+/* Encrypt Toggle - Checkbox with label */
+.encrypt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.15s ease-out;
+}
+
+.encrypt-toggle:hover {
+  color: var(--text-primary);
+}
+
+.encrypt-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-purple);
+  cursor: pointer;
+}
+
+.encrypt-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.encrypt-label svg {
+  color: var(--accent-purple);
+}
+
+/* Password Wrapper */
+.password-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: passwordSlideIn 0.2s ease-out;
+}
+
+.password-wrapper.hidden {
+  display: none;
+}
+
+@keyframes passwordSlideIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Password Input */
+.encrypt-password {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: all 0.2s ease-out;
+}
+
+.encrypt-password:focus {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+}
+
+.encrypt-password::placeholder {
+  color: var(--text-placeholder);
+}
+
+/* Password Toggle Button */
+.password-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.password-toggle:hover {
+  background: var(--hover-bg-strong);
+  color: var(--text-secondary);
+  border-color: var(--border-secondary);
+}
+
+.password-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Encrypt Button Variant */
+.btn-encrypt {
+  background: linear-gradient(180deg, var(--accent-purple-light) 0%, var(--accent-purple) 100%) !important;
+  box-shadow: 0 1px 2px rgba(124,58,237,0.2), 0 2px 8px rgba(124,58,237,0.15) !important;
+}
+
+.btn-encrypt:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--accent-purple) 0%, var(--accent-purple-dark) 100%) !important;
+  box-shadow: 0 4px 8px rgba(124,58,237,0.25), 0 6px 20px rgba(124,58,237,0.2) !important;
+}
+
+/* Encrypt Note - Success Screen */
+.encrypt-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--accent-purple);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--accent-purple-bg);
+  border-radius: 8px;
+  animation: noteSlideIn 0.3s ease-out 0.4s both;
+}
+
+@keyframes noteSlideIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.encrypt-note svg {
+  flex-shrink: 0;
+}
+
+/* ============================================================
    RESPONSIVE LAYOUT
    ============================================================ */
 
@@ -557,7 +646,6 @@ button:focus:not(:focus-visible) { outline: none; }
   .btn { padding: 12px; }
   .success-icon, .error-icon { width: 48px; height: 48px; margin-bottom: 12px; }
   .code-display { font-size: 20px; padding: 10px 16px; }
-  .encrypt-row { padding: 10px 12px; }
   .receive-box { padding: 12px 0; }
   .receive-icon svg { width: 40px; height: 40px; }
   .receive-text { font-size: 14px; margin-bottom: 16px; }
@@ -580,7 +668,6 @@ button:focus:not(:focus-visible) { outline: none; }
   .receive-icon svg { width: 56px; height: 56px; }
   .receive-text { font-size: 16px; margin-bottom: 24px; }
   .receive-input-wrapper { max-width: 340px; margin-bottom: 20px; }
-  .encrypt-row { padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; }
 }
 
 /* Wide mode - wider windows (>550px width) */
@@ -598,8 +685,6 @@ button:focus:not(:focus-visible) { outline: none; }
 /* Extra wide - show more horizontal space usage */
 @media (min-width: 650px) {
   .content { padding-left: 40px; padding-right: 40px; }
-  .encrypt-row { gap: 16px; }
-  .encrypt-password { padding: 12px 14px; font-size: 14px; }
 }
 
 /* Narrow mode - very small windows (<380px width) */
@@ -615,8 +700,6 @@ button:focus:not(:focus-visible) { outline: none; }
   .dropzone-subtext { font-size: 12px; }
   .file-item { padding: 8px 12px; }
   .file-item-name { font-size: 12px; }
-  .encrypt-row { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
-  .password-wrapper { flex-basis: 100%; }
   .btn { padding: 12px; font-size: 13px; }
   .code-display { font-size: 18px; padding: 10px 14px; }
 }

@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { WormholeAPI, Result, SendResponse, ReceiveResponse, DockerStatus } from '../shared/types';
+import type {
+  WormholeAPI,
+  Result,
+  SendResponse,
+  ReceiveResponse,
+  DecryptResponse,
+  DockerStatus,
+} from '../shared/types';
 
 const api: WormholeAPI = {
   send: (paths: string[], password?: string): Promise<Result<SendResponse>> => {
@@ -8,6 +15,10 @@ const api: WormholeAPI = {
 
   receive: (code: string): Promise<Result<ReceiveResponse>> => {
     return ipcRenderer.invoke('wormhole:receive', code);
+  },
+
+  decrypt: (archivePath: string, password: string, outputDir: string): Promise<Result<DecryptResponse>> => {
+    return ipcRenderer.invoke('wormhole:decrypt', archivePath, password, outputDir);
   },
 
   checkDocker: (): Promise<Result<DockerStatus>> => {

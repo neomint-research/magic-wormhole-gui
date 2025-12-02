@@ -1,6 +1,6 @@
 import { ipcMain, dialog, shell, clipboard } from 'electron';
 import { checkDocker } from '../services/docker';
-import { send, receive } from '../services/wormhole';
+import { send, receive, decrypt } from '../services/wormhole';
 import { cleanupTempDir } from '../utils/paths';
 
 /**
@@ -21,6 +21,11 @@ export function registerIpcHandlers(): void {
   // Receive file
   ipcMain.handle('wormhole:receive', async (_event, code: string) => {
     return receive({ code });
+  });
+
+  // Decrypt received 7z archive
+  ipcMain.handle('wormhole:decrypt', async (_event, archivePath: string, password: string, outputDir: string) => {
+    return decrypt({ archivePath, password, outputDir });
   });
 
   // File picker dialog - files only with multi-selection

@@ -44,4 +44,6 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.EMPTY_PATHS]: 'No files or folders selected.',
   [ErrorCode.EMPTY_CODE]: 'Please enter a wormhole code.',
   [ErrorCode.CODE_FORMAT]: 'Invalid code format. Expected: number-word-word',
+  [ErrorCode.DECRYPT_FAILED]: 'Decryption failed. Wrong password or corrupted archive.',
+  [ErrorCode.EXTRACT_FAILED]: 'Failed to extract archive.',
 };

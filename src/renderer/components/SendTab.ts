@@ -2,6 +2,7 @@ import type { SendState } from '../../shared/types';
 import { getState, setSendState, resetSend } from '../state';
 
 let container: HTMLElement | null = null;
+let currentPassword: string = '';
 
 export function initSendTab(element: HTMLElement): void {
   container = element;
@@ -36,6 +37,16 @@ function getSendHTML(state: SendState): string {
           <p class="dropzone-text">${state.names.length} item(s) selected</p>
           <p class="dropzone-subtext">${displayText}</p>
         </div>
+        <div class="encryption-section">
+          <label class="checkbox-label">
+            <input type="checkbox" id="encryptToggle">
+            <span>Encrypt with password</span>
+          </label>
+          <div class="password-field hidden" id="passwordField">
+            <input type="password" class="input" id="passwordInput" placeholder="Enter encryption password">
+            <p class="password-hint">Password required to decrypt. Share separately.</p>
+          </div>
+        </div>
         <button class="btn btn-primary" id="sendBtn">Send</button>
       `;
 
@@ -43,7 +54,7 @@ function getSendHTML(state: SendState): string {
       return `
         <div class="status-box">
           <div class="spinner"></div>
-          <p>Creating archive...</p>
+          <p>Creating encrypted archive...</p>
         </div>
         <button class="btn btn-primary" disabled>Send</button>
       `;
@@ -62,6 +73,7 @@ function getSendHTML(state: SendState): string {
         <div class="success-box">
           <p class="success-label">Wormhole Code:</p>
           <p class="code-display" id="codeDisplay">${state.code}</p>
+          ${state.encrypted ? '<p class="encrypted-badge">Encrypted (7z AES-256)</p>' : ''}
           <button class="btn btn-secondary" id="copyBtn">Copy to clipboard</button>
         </div>
         <button class="btn btn-primary" id="resetBtn">Send another</button>
@@ -75,6 +87,9 @@ function getSendHTML(state: SendState): string {
         </div>
         <button class="btn btn-primary" id="resetBtn">Try again</button>
       `;
+
+    default:
+      return '';
   }
 }
 
@@ -84,11 +99,34 @@ function attachEventListeners(state: SendState): void {
   const copyBtn = document.getElementById('copyBtn');
   const resetBtn = document.getElementById('resetBtn');
   const codeDisplay = document.getElementById('codeDisplay');
+  const encryptToggle = document.getElementById('encryptToggle') as HTMLInputElement | null;
+  const passwordField = document.getElementById('passwordField');
+  const passwordInput = document.getElementById('passwordInput') as HTMLInputElement | null;
 
   if (dropzone && (state.status === 'idle' || state.status === 'files-selected')) {
     dropzone.addEventListener('click', handleBrowse);
     dropzone.addEventListener('dragover', handleDragOver);
+    dropzone.addEventListener('dragleave', handleDragLeave);
     dropzone.addEventListener('drop', handleDrop);
+  }
+
+  if (encryptToggle && passwordField) {
+    encryptToggle.addEventListener('change', () => {
+      if (encryptToggle.checked) {
+        passwordField.classList.remove('hidden');
+        passwordInput?.focus();
+      } else {
+        passwordField.classList.add('hidden');
+        currentPassword = '';
+        if (passwordInput) passwordInput.value = '';
+      }
+    });
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener('input', () => {
+      currentPassword = passwordInput.value;
+    });
   }
 
   if (sendBtn && state.status === 'files-selected') {
@@ -99,12 +137,17 @@ function attachEventListeners(state: SendState): void {
     copyBtn.addEventListener('click', () => {
       window.wormhole.copyToClipboard(codeDisplay.textContent || '');
       copyBtn.textContent = 'Copied!';
-      setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 2000);
+      copyBtn.classList.add('btn-success');
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy to clipboard';
+        copyBtn.classList.remove('btn-success');
+      }, 2000);
     });
   }
 
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
+      currentPassword = '';
       resetSend();
       render();
     });
@@ -114,11 +157,23 @@ function attachEventListeners(state: SendState): void {
 function handleDragOver(e: DragEvent): void {
   e.preventDefault();
   e.stopPropagation();
+  const dropzone = document.getElementById('dropzone');
+  if (dropzone) dropzone.classList.add('dropzone-hover');
+}
+
+function handleDragLeave(e: DragEvent): void {
+  e.preventDefault();
+  e.stopPropagation();
+  const dropzone = document.getElementById('dropzone');
+  if (dropzone) dropzone.classList.remove('dropzone-hover');
 }
 
 function handleDrop(e: DragEvent): void {
   e.preventDefault();
   e.stopPropagation();
+
+  const dropzone = document.getElementById('dropzone');
+  if (dropzone) dropzone.classList.remove('dropzone-hover');
 
   const files = e.dataTransfer?.files;
   if (!files || files.length === 0) return;
@@ -154,6 +209,7 @@ async function handleSend(): Promise<void> {
   if (state.status !== 'files-selected') return;
 
   const { paths } = state;
+  const password = currentPassword.trim() || undefined;
 
   setSendState({ status: 'packaging' });
   render();
@@ -164,10 +220,15 @@ async function handleSend(): Promise<void> {
   setSendState({ status: 'sending' });
   render();
 
-  const result = await window.wormhole.send(paths);
+  const result = await window.wormhole.send(paths, password);
 
   if (result.success) {
-    setSendState({ status: 'success', code: result.data.code });
+    currentPassword = '';
+    setSendState({
+      status: 'success',
+      code: result.data.code,
+      encrypted: result.data.encrypted,
+    });
   } else {
     setSendState({
       status: 'error',

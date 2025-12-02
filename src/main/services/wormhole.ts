@@ -7,6 +7,8 @@ import {
   SendResponse,
   ReceiveRequest,
   ReceiveResponse,
+  DecryptRequest,
+  DecryptResponse,
 } from '../../shared/types';
 import {
   ERROR_MESSAGES,
@@ -15,7 +17,13 @@ import {
 } from '../../shared/constants';
 import { toDockerPath, createReceiveSubdir, getFirstFileInDir } from '../utils/paths';
 import { runDockerCommand, runDockerSend } from './docker';
-import { createArchive, needsArchiving } from './archiver';
+import {
+  createArchive,
+  createEncryptedArchive,
+  extractEncryptedArchive,
+  isEncrypted7z,
+  needsArchiving,
+} from './archiver';
 
 /**
  * Sends files via wormhole.
@@ -56,7 +64,10 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
 
   // Archive if needed (multiple files, directory, or encryption)
   if (needsArchiving(paths, password)) {
-    const archiveResult = await createArchive(paths, { password });
+    // Use encrypted 7z if password provided, else standard zip
+    const archiveResult = password
+      ? await createEncryptedArchive(paths, password)
+      : await createArchive(paths);
 
     if (!archiveResult.success) {
       return archiveResult;
@@ -99,6 +110,7 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
 /**
  * Receives a file via wormhole.
  * Original filename is preserved by wormhole CLI.
+ * Returns isEncrypted flag if the received file is a .7z archive.
  */
 export async function receive(request: ReceiveRequest): Promise<Result<ReceiveResponse>> {
   const { code } = request;
@@ -145,7 +157,6 @@ export async function receive(request: ReceiveRequest): Promise<Result<ReceiveRe
   const dockerDir = toDockerPath(receiveDir);
 
   // Run wormhole receive
-  // NOTE: No --output-file flag - wormhole preserves original filename
   const result = await runDockerCommand(
     ['wormhole', 'receive', '--accept-file', trimmedCode],
     { hostPath: dockerDir, containerPath: '/data', readOnly: false },
@@ -178,6 +189,44 @@ export async function receive(request: ReceiveRequest): Promise<Result<ReceiveRe
     data: {
       filename: path.basename(receivedFile),
       savedPath: receivedFile,
+      isEncrypted: isEncrypted7z(receivedFile),
+    },
+  };
+}
+
+/**
+ * Decrypts a received 7z archive.
+ */
+export async function decrypt(request: DecryptRequest): Promise<Result<DecryptResponse>> {
+  const { archivePath, password, outputDir } = request;
+
+  // Validate archive exists
+  if (!fs.existsSync(archivePath)) {
+    return {
+      success: false,
+      error: {
+        code: ErrorCode.PATH_NOT_FOUND,
+        message: ERROR_MESSAGES[ErrorCode.PATH_NOT_FOUND],
+        details: archivePath,
+      },
+    };
+  }
+
+  // Extract the archive
+  const extractResult = await extractEncryptedArchive(archivePath, {
+    password,
+    outputDir,
+  });
+
+  if (!extractResult.success) {
+    return extractResult;
+  }
+
+  return {
+    success: true,
+    data: {
+      extractedPath: extractResult.data.extractedPath,
+      fileCount: extractResult.data.fileCount,
     },
   };
 }

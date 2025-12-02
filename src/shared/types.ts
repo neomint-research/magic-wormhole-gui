@@ -26,6 +26,10 @@ export enum ErrorCode {
   EMPTY_PATHS = 'E_EMPTY_PATHS',
   EMPTY_CODE = 'E_EMPTY_CODE',
   CODE_FORMAT = 'E_CODE_FORMAT',
+
+  // Encryption errors
+  DECRYPT_FAILED = 'E_DECRYPT_FAILED',
+  EXTRACT_FAILED = 'E_EXTRACT_FAILED',
 }
 
 // ============================================================
@@ -61,7 +65,7 @@ export interface SendResponse {
   code: string;
   archiveUsed: boolean;
   archivePath?: string;
-  encrypted?: boolean;
+  encrypted: boolean;
 }
 
 export interface ReceiveRequest {
@@ -71,6 +75,18 @@ export interface ReceiveRequest {
 export interface ReceiveResponse {
   filename: string;
   savedPath: string;
+  isEncrypted: boolean;
+}
+
+export interface DecryptRequest {
+  archivePath: string;
+  password: string;
+  outputDir: string;
+}
+
+export interface DecryptResponse {
+  extractedPath: string;
+  fileCount: number;
 }
 
 export interface DockerStatus {
@@ -100,16 +116,20 @@ export type DockerState = 'checking' | 'available' | 'unavailable';
 export type SendState =
   | { status: 'idle' }
   | { status: 'files-selected'; paths: string[]; names: string[] }
+  | { status: 'password-prompt'; paths: string[]; names: string[] }
   | { status: 'packaging' }
   | { status: 'sending' }
-  | { status: 'success'; code: string }
+  | { status: 'success'; code: string; encrypted: boolean }
   | { status: 'error'; message: string; details?: string };
 
 export type ReceiveState =
   | { status: 'idle' }
   | { status: 'code-entered'; code: string }
   | { status: 'receiving' }
-  | { status: 'success'; filename: string; path: string }
+  | { status: 'success'; filename: string; path: string; isEncrypted: boolean }
+  | { status: 'decrypt-prompt'; filename: string; path: string }
+  | { status: 'decrypting' }
+  | { status: 'decrypt-success'; extractedPath: string; fileCount: number }
   | { status: 'error'; message: string; details?: string };
 
 export interface AppState {
@@ -126,6 +146,7 @@ export interface AppState {
 export interface WormholeAPI {
   send: (paths: string[], password?: string) => Promise<Result<SendResponse>>;
   receive: (code: string) => Promise<Result<ReceiveResponse>>;
+  decrypt: (archivePath: string, password: string, outputDir: string) => Promise<Result<DecryptResponse>>;
   checkDocker: () => Promise<Result<DockerStatus>>;
   getFilePaths: () => Promise<string[] | null>;
   getFolderPath: () => Promise<string[] | null>;
