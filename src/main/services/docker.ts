@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
-import { Result, DockerStatus, ErrorCode } from '../../shared/types';
-import { ERROR_MESSAGES, DOCKER_IMAGE, DOCKER_CHECK_TIMEOUT_MS, WORMHOLE_CODE_REGEX } from '../../shared/constants';
+import { Result, DockerStatus, ErrorCode, ProgressEvent } from '../../shared/types';
+import { ERROR_MESSAGES, DOCKER_IMAGE, DOCKER_CHECK_TIMEOUT_MS, WORMHOLE_CODE_REGEX, PROGRESS_REGEX } from '../../shared/constants';
 import { spawnWithTimeout } from '../utils/process';
 
 // Track active send processes for cleanup
@@ -89,6 +89,8 @@ export async function runDockerCommand(
   const dockerArgs = [
     'run',
     '--rm',
+    '-t',
+    '-e', 'PYTHONUNBUFFERED=1',
     '-v',
     volumeArg,
     DOCKER_IMAGE,
@@ -130,11 +132,15 @@ export async function runDockerCommand(
 /**
  * Runs wormhole send and returns the code as soon as it's available.
  * The process continues running in the background until transfer completes.
+ * Optional onProgress callback receives progress updates during transfer.
+ * Optional onComplete callback fires when transfer finishes.
  */
 export function runDockerSend(
   filePath: string,
   volumeMount: { hostPath: string; containerPath: string },
-  timeoutMs: number
+  timeoutMs: number,
+  onProgress?: (event: ProgressEvent) => void,
+  onComplete?: (success: boolean) => void
 ): Promise<Result<{ code: string }>> {
   return new Promise((resolve) => {
     // Kill any previous send process
@@ -148,6 +154,8 @@ export function runDockerSend(
     const dockerArgs = [
       'run',
       '--rm',
+      '-t',
+      '-e', 'PYTHONUNBUFFERED=1',
       '-v',
       volumeArg,
       DOCKER_IMAGE,
@@ -166,6 +174,7 @@ export function runDockerSend(
     let stdout = '';
     let stderr = '';
     let resolved = false;
+    let codeFound = false;
 
     const timeout = setTimeout(() => {
       if (!resolved) {
@@ -190,6 +199,7 @@ export function runDockerSend(
 
       if (match) {
         resolved = true;
+        codeFound = true;
         clearTimeout(timeout);
         // Don't kill process - let it wait for receiver
         resolve({
@@ -201,16 +211,31 @@ export function runDockerSend(
       }
     };
 
+    const checkForProgress = (data: string) => {
+      if (!onProgress) return;
+      const match = data.match(PROGRESS_REGEX);
+      if (match) {
+        onProgress({
+          type: 'send',
+          percent: parseInt(match[1], 10),
+          transferred: match[2].trim(),
+          total: match[3].trim(),
+        });
+      }
+    };
+
     proc.stdout.on('data', (data: Buffer) => {
       const str = data.toString();
       stdout += str;
       checkForCode(str);
+      checkForProgress(str);
     });
 
     proc.stderr.on('data', (data: Buffer) => {
       const str = data.toString();
       stderr += str;
       checkForCode(str);
+      checkForProgress(str);
     });
 
     proc.on('error', (err) => {
@@ -231,6 +256,12 @@ export function runDockerSend(
 
     proc.on('close', (exitCode) => {
       activeSendProcess = null;
+      
+      // If code was found, this is a completion event
+      if (codeFound && onComplete) {
+        onComplete(exitCode === 0);
+      }
+      
       if (!resolved) {
         resolved = true;
         clearTimeout(timeout);
@@ -255,4 +286,117 @@ export function cancelSend(): void {
     activeSendProcess.kill();
     activeSendProcess = null;
   }
+}
+
+/**
+ * Runs a docker command with streaming output for progress tracking.
+ * Used for receive operations where we need progress updates.
+ */
+export function runDockerCommandWithProgress(
+  args: string[],
+  volumeMount: { hostPath: string; containerPath: string; readOnly?: boolean },
+  timeoutMs: number,
+  onProgress?: (event: ProgressEvent) => void
+): Promise<Result<{ stdout: string; stderr: string }>> {
+  return new Promise((resolve) => {
+    const volumeArg = volumeMount.readOnly
+      ? `${volumeMount.hostPath}:${volumeMount.containerPath}:ro`
+      : `${volumeMount.hostPath}:${volumeMount.containerPath}`;
+
+    const dockerArgs = [
+      'run',
+      '--rm',
+      '-t',
+      '-e', 'PYTHONUNBUFFERED=1',
+      '-v',
+      volumeArg,
+      DOCKER_IMAGE,
+      ...args,
+    ];
+
+    const proc = spawn('docker', dockerArgs, {
+      shell: false,
+      windowsHide: true,
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let resolved = false;
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        resolve({
+          success: false,
+          error: {
+            code: ErrorCode.DOCKER_TIMEOUT,
+            message: ERROR_MESSAGES[ErrorCode.DOCKER_TIMEOUT],
+          },
+        });
+      }
+    }, timeoutMs);
+
+    const checkForProgress = (data: string) => {
+      if (!onProgress) return;
+      const match = data.match(PROGRESS_REGEX);
+      if (match) {
+        onProgress({
+          type: 'receive',
+          percent: parseInt(match[1], 10),
+          transferred: match[2].trim(),
+          total: match[3].trim(),
+        });
+      }
+    };
+
+    proc.stdout.on('data', (data: Buffer) => {
+      const str = data.toString();
+      stdout += str;
+      checkForProgress(str);
+    });
+
+    proc.stderr.on('data', (data: Buffer) => {
+      const str = data.toString();
+      stderr += str;
+      checkForProgress(str);
+    });
+
+    proc.on('error', (err) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        resolve({
+          success: false,
+          error: {
+            code: ErrorCode.DOCKER_EXIT_NONZERO,
+            message: ERROR_MESSAGES[ErrorCode.DOCKER_EXIT_NONZERO],
+            details: err.message,
+          },
+        });
+      }
+    });
+
+    proc.on('close', (exitCode) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        if (exitCode !== 0) {
+          resolve({
+            success: false,
+            error: {
+              code: ErrorCode.DOCKER_EXIT_NONZERO,
+              message: ERROR_MESSAGES[ErrorCode.DOCKER_EXIT_NONZERO],
+              details: stderr || stdout,
+            },
+          });
+        } else {
+          resolve({
+            success: true,
+            data: { stdout, stderr },
+          });
+        }
+      }
+    });
+  });
 }

@@ -74,7 +74,6 @@ src/
 ## Limitations
 
 - Requires Docker Desktop running
-- No transfer progress indicator
 - Single transfer at a time
 - 50 GB archive size limit
 

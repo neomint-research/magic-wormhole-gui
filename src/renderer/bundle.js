@@ -76,13 +76,12 @@
   let state = {
     tab: 'send',
     docker: DOCKER.CHECKING,
-    send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false },
-    receive: { status: STATUS.IDLE },
+    send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null },
+    receive: { status: STATUS.IDLE, progress: null },
   };
 
   const listeners = [];
 
-  function getState() { return state; }
   function subscribe(fn) { listeners.push(fn); }
   function notify() { listeners.forEach(fn => fn(state)); }
 
@@ -260,16 +259,40 @@
           <button class="btn btn-primary ${s.encrypt ? 'btn-encrypt' : ''}" id="sendBtn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>`;
 
       case STATUS.PACKAGING:
+        const packMsg = s.encrypt ? 'Encrypting files...' : 'Preparing files...';
+        return `<div class="status-box"><div class="spinner"></div><p class="status-text">${packMsg}</p></div>`;
+
       case STATUS.SENDING:
-        const msg = s.status === STATUS.PACKAGING
-          ? (s.encrypt ? 'Encrypting files...' : 'Preparing files...')
-          : 'Creating secure connection...';
-        return `<div class="status-box"><div class="spinner"></div><p class="status-text">${msg}</p></div>`;
+        if (s.progress && s.progress.percent > 0) {
+          return `
+            <div class="status-box">
+              <p class="status-text">Sending... ${s.progress.percent}%</p>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${s.progress.percent}%"></div></div>
+              <p class="progress-detail">${s.progress.transferred} / ${s.progress.total}</p>
+            </div>`;
+        }
+        return `<div class="status-box"><div class="spinner"></div><p class="status-text">Waiting for receiver...</p></div>`;
 
       case STATUS.SUCCESS:
         const encryptNote = s.encrypted
           ? `<p class="encrypt-note">${ICONS.lock} This transfer is password-protected</p>`
           : '';
+        
+        // Transfer status section based on phase
+        let transferStatus = '';
+        if (s.transferPhase === 'waiting') {
+          transferStatus = `<div class="transfer-status transfer-waiting"><span class="pulse-dots"></span> Waiting for receiver</div>`;
+        } else if (s.transferPhase === 'transferring' && s.progress) {
+          transferStatus = `
+            <div class="transfer-status transfer-active">
+              <div class="progress-bar"><div class="progress-fill" style="width: ${s.progress.percent}%"></div></div>
+              <p class="progress-text">Sending... ${s.progress.percent}%</p>
+              <p class="progress-detail">${s.progress.transferred} / ${s.progress.total}</p>
+            </div>`;
+        } else if (s.transferPhase === 'complete') {
+          transferStatus = `<div class="transfer-status transfer-complete"><span class="complete-check">${ICONS.check}</span> Transfer complete</div>`;
+        }
+        
         return `
           <div class="success-box">
             <div class="success-icon">${ICONS.check}</div>
@@ -277,6 +300,7 @@
             <p class="code-display" id="codeDisplay">${s.code}</p>
             ${encryptNote}
             <button class="btn btn-ghost" id="copyBtn">${ICONS.copy}<span>Copy code</span></button>
+            ${transferStatus}
           </div>
           <button class="btn btn-primary" id="resetSendBtn">Send more files</button>`;
 
@@ -394,6 +418,7 @@
           status: STATUS.SUCCESS,
           code: result.data.code,
           encrypted: result.data.encrypted,
+          transferPhase: 'waiting',
           items: [],
           encrypt: false,
           password: '',
@@ -445,6 +470,14 @@
           </div>`;
 
       case STATUS.RECEIVING:
+        if (s.progress && s.progress.percent > 0) {
+          return `
+            <div class="status-box">
+              <p class="status-text">Receiving... ${s.progress.percent}%</p>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${s.progress.percent}%"></div></div>
+              <p class="progress-detail">${s.progress.transferred} / ${s.progress.total}</p>
+            </div>`;
+        }
         return `<div class="status-box"><div class="spinner"></div><p class="status-text">Connecting...</p></div>`;
 
       case STATUS.SUCCESS:
@@ -656,6 +689,26 @@
     $('tabSend')?.addEventListener('click', () => setState({ tab: 'send' }));
     $('tabReceive')?.addEventListener('click', () => setState({ tab: 'receive' }));
     $('themeToggle')?.addEventListener('click', toggleTheme);
+
+    // Progress event listener
+    window.wormhole.onProgress((event) => {
+      if (event.type === 'send') {
+        if (state.send.status === STATUS.SENDING) {
+          setSendState({ progress: event });
+        } else if (state.send.status === STATUS.SUCCESS && state.send.transferPhase !== 'complete') {
+          setSendState({ progress: event, transferPhase: 'transferring' });
+        }
+      } else if (event.type === 'receive' && state.receive.status === STATUS.RECEIVING) {
+        setReceiveState({ progress: event });
+      }
+    });
+
+    // Transfer complete event listener
+    window.wormhole.onTransferComplete((event) => {
+      if (event.type === 'send' && state.send.status === STATUS.SUCCESS) {
+        setSendState({ transferPhase: 'complete', progress: null });
+      }
+    });
 
     subscribe(handleStateChange);
     handleStateChange();

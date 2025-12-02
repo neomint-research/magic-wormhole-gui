@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, clipboard } from 'electron';
+import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron';
 import { checkDocker } from '../services/docker';
 import { send, receive, decrypt } from '../services/wormhole';
 import { cleanupTempDir } from '../utils/paths';
@@ -10,7 +10,25 @@ import {
   validatePassword,
   validateCode,
 } from '../utils/validation';
-import { ErrorCode } from '../../shared/types';
+import { ErrorCode, ProgressEvent } from '../../shared/types';
+
+let mainWindow: BrowserWindow | null = null;
+
+export function setMainWindow(window: BrowserWindow | null): void {
+  mainWindow = window;
+}
+
+function emitProgress(event: ProgressEvent): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('wormhole:progress', event);
+  }
+}
+
+function emitTransferComplete(type: 'send' | 'receive', success: boolean): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('wormhole:transfer-complete', { type, success });
+  }
+}
 
 /**
  * Registers all IPC handlers.
@@ -42,7 +60,11 @@ export function registerIpcHandlers(): void {
       };
     }
 
-    return send({ paths, password });
+    return send(
+      { paths, password },
+      emitProgress,
+      (success) => emitTransferComplete('send', success)
+    );
   });
 
   // Receive file
@@ -56,7 +78,7 @@ export function registerIpcHandlers(): void {
       };
     }
 
-    return receive({ code });
+    return receive({ code }, emitProgress);
   });
 
   // Decrypt received 7z archive

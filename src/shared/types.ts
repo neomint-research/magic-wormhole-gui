@@ -93,6 +93,18 @@ export interface DecryptResponse {
   fileCount: number;
 }
 
+export interface ProgressEvent {
+  type: 'send' | 'receive';
+  percent: number;
+  transferred: string;
+  total: string;
+}
+
+export interface TransferCompleteEvent {
+  type: 'send' | 'receive';
+  success: boolean;
+}
+
 export interface DockerStatus {
   available: boolean;
   version?: string;
@@ -157,6 +169,8 @@ export interface WormholeAPI {
   openFolder: (path: string) => Promise<void>;
   copyToClipboard: (text: string) => Promise<void>;
   getPathForFile: (file: File) => string;
+  onProgress: (callback: (event: ProgressEvent) => void) => () => void;
+  onTransferComplete: (callback: (event: TransferCompleteEvent) => void) => () => void;
 }
 
 declare global {

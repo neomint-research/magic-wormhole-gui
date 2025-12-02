@@ -330,7 +330,100 @@ body {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
-.status-text { font-size: 14px; color: var(--text-tertiary); }
+.status-text { font-size: 14px; color: var(--text-tertiary); margin-bottom: 12px; }
+
+/* Progress Bar */
+.progress-bar {
+  width: 100%;
+  max-width: 280px;
+  height: 6px;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-blue-light) 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease-out;
+}
+.progress-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.progress-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Fira Code", Consolas, monospace;
+}
+
+/* Transfer Status - Premium UI */
+.transfer-status {
+  margin-top: 20px;
+  padding: 16px 24px;
+  border-radius: 10px;
+  background: var(--bg-tertiary);
+  text-align: center;
+  animation: statusReveal 0.4s ease-out;
+  width: 100%;
+  max-width: 300px;
+}
+@keyframes statusReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.transfer-waiting {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.pulse-dots::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--accent-blue);
+  border-radius: 50%;
+  margin-right: 8px;
+  animation: pulseDot 1.4s ease-in-out infinite;
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+.transfer-active {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.transfer-active .progress-bar {
+  max-width: 100%;
+}
+.transfer-complete {
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.complete-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.complete-check svg {
+  width: 16px;
+  height: 16px;
+  animation: checkPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes checkPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
 
 /* Success Box */
 .success-box { 

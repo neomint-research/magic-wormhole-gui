@@ -9,6 +9,7 @@ import {
   ReceiveResponse,
   DecryptRequest,
   DecryptResponse,
+  ProgressEvent,
 } from '../../shared/types';
 import {
   ERROR_MESSAGES,
@@ -17,7 +18,7 @@ import {
   FILESYSTEM_SYNC_DELAY_MS,
 } from '../../shared/constants';
 import { toDockerPath, createReceiveSubdir, getFirstFileInDir } from '../utils/paths';
-import { runDockerCommand, runDockerSend } from './docker';
+import { runDockerCommand, runDockerSend, runDockerCommandWithProgress } from './docker';
 import {
   createArchive,
   createEncryptedArchive,
@@ -30,7 +31,11 @@ import {
  * Sends files via wormhole.
  * Returns the code as soon as it's generated (doesn't wait for transfer to complete).
  */
-export async function send(request: SendRequest): Promise<Result<SendResponse>> {
+export async function send(
+  request: SendRequest,
+  onProgress?: (event: ProgressEvent) => void,
+  onComplete?: (success: boolean) => void
+): Promise<Result<SendResponse>> {
   const { paths, password } = request;
 
   // Validation
@@ -90,7 +95,9 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
   const result = await runDockerSend(
     `/data/${fileName}`,
     { hostPath: dockerDir, containerPath: '/data' },
-    WORMHOLE_TIMEOUT_MS
+    WORMHOLE_TIMEOUT_MS,
+    onProgress,
+    onComplete
   );
 
   if (!result.success) {
@@ -113,7 +120,10 @@ export async function send(request: SendRequest): Promise<Result<SendResponse>> 
  * Original filename is preserved by wormhole CLI.
  * Returns isEncrypted flag if the received file is a .7z archive.
  */
-export async function receive(request: ReceiveRequest): Promise<Result<ReceiveResponse>> {
+export async function receive(
+  request: ReceiveRequest,
+  onProgress?: (event: ProgressEvent) => void
+): Promise<Result<ReceiveResponse>> {
   const { code } = request;
 
   // Validation
@@ -157,11 +167,12 @@ export async function receive(request: ReceiveRequest): Promise<Result<ReceiveRe
 
   const dockerDir = toDockerPath(receiveDir);
 
-  // Run wormhole receive
-  const result = await runDockerCommand(
+  // Run wormhole receive with progress tracking
+  const result = await runDockerCommandWithProgress(
     ['wormhole', 'receive', '--accept-file', trimmedCode],
     { hostPath: dockerDir, containerPath: '/data', readOnly: false },
-    WORMHOLE_TIMEOUT_MS
+    WORMHOLE_TIMEOUT_MS,
+    onProgress
   );
 
   if (!result.success) {

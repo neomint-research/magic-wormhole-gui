@@ -6,6 +6,8 @@ import type {
   ReceiveResponse,
   DecryptResponse,
   DockerStatus,
+  ProgressEvent,
+  TransferCompleteEvent,
 } from '../shared/types';
 
 const api: WormholeAPI = {
@@ -43,6 +45,18 @@ const api: WormholeAPI = {
 
   getPathForFile: (file: File): string => {
     return webUtils.getPathForFile(file);
+  },
+
+  onProgress: (callback: (event: ProgressEvent) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: ProgressEvent) => callback(data);
+    ipcRenderer.on('wormhole:progress', handler);
+    return () => ipcRenderer.removeListener('wormhole:progress', handler);
+  },
+
+  onTransferComplete: (callback: (event: TransferCompleteEvent) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: TransferCompleteEvent) => callback(data);
+    ipcRenderer.on('wormhole:transfer-complete', handler);
+    return () => ipcRenderer.removeListener('wormhole:transfer-complete', handler);
   },
 };
 

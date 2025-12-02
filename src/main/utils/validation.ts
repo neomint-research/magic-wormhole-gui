@@ -1,45 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { app } from 'electron';
-import { getReceiveDir, isPortableMode, getPortableDataDir } from './paths';
-
-/**
- * Allowed root directories for send operations.
- * Users can only send files from these locations.
- */
-function getAllowedSendRoots(): string[] {
-  const roots = [
-    app.getPath('home'),
-    app.getPath('documents'),
-    app.getPath('downloads'),
-    app.getPath('desktop'),
-    app.getPath('temp'),
-  ];
-
-  // In portable mode, also allow the app's data directory
-  if (isPortableMode()) {
-    roots.push(getPortableDataDir());
-  }
-
-  return roots;
-}
-
-/**
- * Checks if a path is within allowed directories and safe from traversal.
- */
-export function isPathSafe(targetPath: string, allowedRoots: string[]): boolean {
-  // Block path traversal sequences
-  if (targetPath.includes('..')) {
-    return false;
-  }
-
-  const resolved = path.resolve(targetPath);
-
-  return allowedRoots.some((root) => {
-    const resolvedRoot = path.resolve(root);
-    return resolved === resolvedRoot || resolved.startsWith(resolvedRoot + path.sep);
-  });
-}
+import { getReceiveDir } from './paths';
 
 /**
  * Validates paths for send operations.
@@ -50,15 +11,14 @@ export function validateSendPaths(paths: string[]): string | null {
     return 'No paths provided';
   }
 
-  const allowedRoots = getAllowedSendRoots();
-
   for (const p of paths) {
     if (typeof p !== 'string') {
       return 'Invalid path type';
     }
 
-    if (!isPathSafe(p, allowedRoots)) {
-      return `Path outside allowed directories: ${p}`;
+    // Block path traversal sequences
+    if (p.includes('..')) {
+      return 'Path traversal not allowed';
     }
 
     if (!fs.existsSync(p)) {
@@ -136,16 +96,6 @@ export function validateFolderPath(folderPath: string): string | null {
 
   if (folderPath.includes('..')) {
     return 'Path traversal not allowed';
-  }
-
-  // Allow paths within receive directory or user-accessible locations
-  const allowedRoots = [
-    ...getAllowedSendRoots(),
-    getReceiveDir(),
-  ];
-
-  if (!isPathSafe(folderPath, allowedRoots)) {
-    return 'Folder outside allowed directories';
   }
 
   return null;

@@ -9,7 +9,7 @@
     "build:ts": "tsc",
     "build:docker": "docker build -t wormhole-cli ./docker",
     "dev": "npm run build:ts && npm run copy:static && electron .",
-    "copy:static": "copy src\\renderer\\index.html build\\renderer\\ && copy src\\renderer\\styles.css build\\renderer\\ && copy src\\renderer\\bundle.js build\\renderer\\",
+    "copy:static": "node scripts/copy-static.js",
     "icons": "node scripts/convert-icons.js",
     "dist": "npm run build:ts && npm run copy:static && electron-builder",
     "dist:win": "npm run build:ts && npm run copy:static && electron-builder --win",

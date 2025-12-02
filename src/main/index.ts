@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { registerIpcHandlers } from './ipc/handlers';
+import { registerIpcHandlers, setMainWindow } from './ipc/handlers';
 import { cleanupTempDir, isPortableMode, getPortableDataDir } from './utils/paths';
 
 function getIconPath(): string {
@@ -76,7 +76,10 @@ function createWindow(): void {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
+  setMainWindow(mainWindow);
+
   mainWindow.on('closed', () => {
+    setMainWindow(null);
     mainWindow = null;
   });
 }

@@ -30,6 +30,8 @@ export const CLEANUP_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
 export const WORMHOLE_CODE_REGEX = /wormhole code is:\s*(\d+-\w+-\w+)/i;
 export const CODE_VALIDATION_REGEX = /^\d+-\w+-\w+$/;
+// Matches: "  5% 6.19M/117M [00:00<00:01, 61.8MB/s]"
+export const PROGRESS_REGEX = /^\s*(\d+)%\s+([\d.]+[KMGT]?)\/([\d.]+[KMGT]?)\s+\[/m;
 
 // ============================================================
 // ERROR MESSAGES
