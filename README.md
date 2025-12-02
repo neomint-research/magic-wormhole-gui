@@ -22,9 +22,24 @@ Built for users who need fast, private transfers without trusting intermediaries
 
 **Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
 
-1. Download the release for your platform
+1. Download the release for your platform (see Installation below)
 2. Build the Docker image once: `docker build -t wormhole-cli ./docker`
 3. Launch the app
+
+## Installation
+
+Two distribution variants are available:
+
+**Installer (recommended)**
+- Windows: `Wormhole-Desktop-Setup-x.x.x.exe`
+- Installs to Program Files, stores data in `%APPDATA%/wormhole-desktop`
+- Automatic updates, Start Menu integration
+
+**Portable (ZIP)**
+- Windows: `Wormhole-Desktop-x.x.x-win.zip`
+- No installation required, run from any location (including USB drives)
+- All data stored in `./data` subfolder next to the executable
+- No registry modifications, fully self-contained
 
 ## Usage
 
@@ -44,7 +59,14 @@ cd wormhole-desktop
 npm install
 npm run build:docker   # One-time Docker image build
 npm run dev            # Build and run
-npm run dist           # Package for distribution
+```
+
+**Distribution builds:**
+```bash
+npm run dist           # All platforms (current OS)
+npm run dist:win       # Windows (NSIS installer + ZIP portable)
+npm run dist:mac       # macOS
+npm run dist:linux     # Linux
 ```
 
 **Structure:**

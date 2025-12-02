@@ -33,8 +33,7 @@
     "productName": "Wormhole Desktop",
     "copyright": "Copyright © 2025 SKR",
     "directories": {
-      "output": "dist",
-      "buildResources": "assets"
+      "output": "dist"
     },
     "files": [
       "build/**/*"
@@ -51,9 +50,12 @@
         {
           "target": "nsis",
           "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
         }
       ],
-      "icon": "assets/icon.ico",
       "publisherName": "SKR"
     },
     "nsis": {
@@ -64,12 +66,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Wormhole Desktop",
       "uninstallDisplayName": "Wormhole Desktop",
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico",
-      "installerHeaderIcon": "assets/icon.ico",
       "deleteAppDataOnUninstall": true,
       "runAfterFinish": true,
-      "installerSidebar": null,
       "license": "LICENSE",
       "include": "build-resources/installer.nsh"
     },
