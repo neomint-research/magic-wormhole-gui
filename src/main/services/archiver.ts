@@ -4,7 +4,7 @@ import archiver from 'archiver';
 import Seven from 'node-7z';
 import sevenBin from '7zip-bin';
 import { Result, ErrorCode } from '../../shared/types';
-import { ERROR_MESSAGES } from '../../shared/constants';
+import { ERROR_MESSAGES, MAX_ARCHIVE_SIZE_BYTES } from '../../shared/constants';
 import { getTempDir, generateArchiveName } from '../utils/paths';
 
 const pathTo7zip = sevenBin.path7za;
@@ -195,6 +195,29 @@ export async function extractEncryptedArchive(
   options: ExtractOptions
 ): Promise<Result<ExtractResult>> {
   const { password, outputDir } = options;
+
+  // Check archive size before extraction (ZIP bomb protection)
+  try {
+    const stats = fs.statSync(archivePath);
+    if (stats.size > MAX_ARCHIVE_SIZE_BYTES) {
+      return {
+        success: false,
+        error: {
+          code: ErrorCode.ARCHIVE_TOO_LARGE,
+          message: ERROR_MESSAGES[ErrorCode.ARCHIVE_TOO_LARGE],
+        },
+      };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: {
+        code: ErrorCode.PATH_NOT_FOUND,
+        message: ERROR_MESSAGES[ErrorCode.PATH_NOT_FOUND],
+        details: err instanceof Error ? err.message : 'Unknown error',
+      },
+    };
+  }
 
   return new Promise((resolve) => {
     try {

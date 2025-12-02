@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { app } from 'electron';
-import { TEMP_SUBDIR, RECEIVE_SUBDIR, ARCHIVE_PREFIX } from '../../shared/constants';
+import { TEMP_SUBDIR, RECEIVE_SUBDIR, ARCHIVE_PREFIX, CLEANUP_MAX_AGE_MS } from '../../shared/constants';
 
 /**
  * Converts Windows path to Docker-compatible path.
@@ -68,11 +68,11 @@ export function createReceiveSubdir(): string {
 }
 
 /**
- * Cleans up old temp files (older than 1 hour).
+ * Cleans up old temp files (older than CLEANUP_MAX_AGE_MS).
  */
 export function cleanupTempDir(): void {
   const tempDir = getTempDir();
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+  const maxAgeThreshold = Date.now() - CLEANUP_MAX_AGE_MS;
   
   try {
     const files = fs.readdirSync(tempDir);
@@ -81,7 +81,7 @@ export function cleanupTempDir(): void {
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
       
-      if (stats.mtimeMs < oneHourAgo) {
+      if (stats.mtimeMs < maxAgeThreshold) {
         fs.unlinkSync(filePath);
       }
     }

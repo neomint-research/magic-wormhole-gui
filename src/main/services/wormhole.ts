@@ -14,6 +14,7 @@ import {
   ERROR_MESSAGES,
   CODE_VALIDATION_REGEX,
   WORMHOLE_TIMEOUT_MS,
+  FILESYSTEM_SYNC_DELAY_MS,
 } from '../../shared/constants';
 import { toDockerPath, createReceiveSubdir, getFirstFileInDir } from '../utils/paths';
 import { runDockerCommand, runDockerSend } from './docker';
@@ -168,7 +169,7 @@ export async function receive(request: ReceiveRequest): Promise<Result<ReceiveRe
   }
 
   // Brief delay for filesystem sync before reading directory
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, FILESYSTEM_SYNC_DELAY_MS));
 
   // Find the received file (wormhole saves with original filename)
   const receivedFile = getFirstFileInDir(receiveDir);

@@ -30,6 +30,10 @@ export enum ErrorCode {
   // Encryption errors
   DECRYPT_FAILED = 'E_DECRYPT_FAILED',
   EXTRACT_FAILED = 'E_EXTRACT_FAILED',
+  ARCHIVE_TOO_LARGE = 'E_ARCHIVE_TOO_LARGE',
+
+  // Validation errors (input)
+  INVALID_PASSWORD = 'E_INVALID_PASSWORD',
 }
 
 // ============================================================

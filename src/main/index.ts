@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc/handlers';
+import { cleanupTempDir } from './utils/paths';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -19,7 +20,8 @@ function createWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,  // Required for file.path access in drag & drop
+      sandbox: false,  // Required: Drag&Drop needs file.path access.
+                       // Risk mitigated by contextIsolation:true + restricted preload API.
       preload: path.join(__dirname, '../preload/index.js'),
     },
   });
@@ -37,6 +39,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  cleanupTempDir();
   app.quit();
 });
 

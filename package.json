@@ -10,17 +10,17 @@
     "dist": "npm run build:ts && npm run copy:static && electron-builder"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
     "archiver": "^6.0.0",
-    "node-7z": "^3.0.0",
-    "7zip-bin": "^5.2.0"
+    "node-7z": "^3.0.0"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.0",
-    "typescript": "^5.3.0",
-    "@types/node": "^20.0.0",
     "@types/archiver": "^6.0.0",
-    "@types/node-7z": "^2.1.10"
+    "@types/node": "^20.0.0",
+    "@types/node-7z": "^2.1.10",
+    "electron": "^35.7.5",
+    "electron-builder": "^24.9.0",
+    "typescript": "^5.3.0"
   },
   "build": {
     "appId": "com.wormhole.desktop",
@@ -36,7 +36,9 @@
       {
         "from": "node_modules/7zip-bin",
         "to": "7zip-bin",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {

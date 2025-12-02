@@ -15,6 +15,14 @@ export const ARCHIVE_PREFIX = 'wormhole-transfer-';
 
 export const DOCKER_CHECK_TIMEOUT_MS = 10_000;
 export const WORMHOLE_TIMEOUT_MS = 120_000;
+export const FILESYSTEM_SYNC_DELAY_MS = 100;
+
+// ============================================================
+// LIMITS
+// ============================================================
+
+export const MAX_ARCHIVE_SIZE_BYTES = 50 * 1024 * 1024 * 1024; // 50 GB
+export const CLEANUP_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
 // ============================================================
 // PATTERNS
@@ -46,4 +54,6 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.CODE_FORMAT]: 'Invalid code format. Expected: number-word-word',
   [ErrorCode.DECRYPT_FAILED]: 'Decryption failed. Wrong password or corrupted archive.',
   [ErrorCode.EXTRACT_FAILED]: 'Failed to extract archive.',
+  [ErrorCode.ARCHIVE_TOO_LARGE]: 'Archive exceeds maximum allowed size (50 GB).',
+  [ErrorCode.INVALID_PASSWORD]: 'Invalid password provided.',
 };

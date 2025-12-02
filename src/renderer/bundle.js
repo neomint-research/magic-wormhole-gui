@@ -46,6 +46,9 @@
     RECEIVING: 'receiving',
     SUCCESS: 'success',
     ERROR: 'error',
+    DECRYPT_PROMPT: 'decrypt-prompt',
+    DECRYPTING: 'decrypting',
+    DECRYPT_SUCCESS: 'decrypt-success',
   };
 
   const DOCKER = {
@@ -89,7 +92,30 @@
   }
 
   function setSendState(send) { setState({ send: { ...state.send, ...send } }); }
-  function setReceiveState(receive) { setState({ receive }); }
+  function setReceiveState(receive) { setState({ receive: { ...state.receive, ...receive } }); }
+
+  function setReceivePassword(password) {
+    setReceiveState({ password });
+    requestAnimationFrame(() => {
+      const input = $('decryptPassword');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(password.length, password.length);
+      }
+    });
+  }
+
+  function toggleReceiveShowPassword() {
+    setReceiveState({ showPassword: !state.receive.showPassword });
+    requestAnimationFrame(() => {
+      const input = $('decryptPassword');
+      if (input) {
+        input.focus();
+        const len = (state.receive.password || '').length;
+        input.setSelectionRange(len, len);
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------------
   // File Management
@@ -258,8 +284,8 @@
         return `
           <div class="error-box">
             <div class="error-icon">${ICONS.error}</div>
-            <p class="error-message">${s.message}</p>
-            ${s.details ? `<details><summary>Details</summary><pre>${s.details}</pre></details>` : ''}
+            <p class="error-message">${escapeHtml(s.message)}</p>
+            ${s.details ? `<details><summary>Details</summary><pre>${escapeHtml(s.details)}</pre></details>` : ''}
           </div>
           <button class="btn btn-primary" id="resetSendBtn">Try again</button>`;
 
@@ -430,12 +456,50 @@
           </div>
           <button class="btn btn-primary" id="resetReceiveBtn">Receive more</button>`;
 
+      case STATUS.DECRYPT_PROMPT:
+        const decryptBtnDisabled = !s.password || s.password.length < MIN_PASSWORD_LENGTH;
+        return `
+          <div class="receive-box">
+            <div class="success-icon">${ICONS.lock}</div>
+            <p class="receive-text">This file is encrypted</p>
+            <p class="filename">${s.filename}</p>
+            <div class="encrypt-row" style="max-width: 300px; width: 100%;">
+              <div class="password-wrapper">
+                <input type="${s.showPassword ? 'text' : 'password'}" 
+                       class="encrypt-password" 
+                       id="decryptPassword" 
+                       placeholder="Enter password"
+                       value="${s.password || ''}"
+                       autocomplete="off">
+                <button type="button" class="password-toggle" id="toggleDecryptPassword" title="${s.showPassword ? 'Hide' : 'Show'} password">
+                  ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
+                </button>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-encrypt" id="decryptBtn" ${decryptBtnDisabled ? 'disabled' : ''} style="max-width: 300px;">Decrypt</button>
+            <button class="btn btn-tertiary" id="skipDecryptBtn">Skip decryption</button>
+          </div>`;
+
+      case STATUS.DECRYPTING:
+        return `<div class="status-box"><div class="spinner"></div><p class="status-text">Decrypting...</p></div>`;
+
+      case STATUS.DECRYPT_SUCCESS:
+        const fileWord = s.fileCount === 1 ? 'file' : 'files';
+        return `
+          <div class="success-box">
+            <div class="success-icon">${ICONS.check}</div>
+            <p class="filename">${s.fileCount} ${fileWord} extracted</p>
+            <p class="filepath">${s.extractedPath}</p>
+            <button class="btn btn-ghost" id="openFolderBtn">${ICONS.folder}<span>Show in folder</span></button>
+          </div>
+          <button class="btn btn-primary" id="resetReceiveBtn">Receive more</button>`;
+
       case STATUS.ERROR:
         return `
           <div class="error-box">
             <div class="error-icon">${ICONS.error}</div>
-            <p class="error-message">${s.message}</p>
-            ${s.details ? `<details><summary>Details</summary><pre>${s.details}</pre></details>` : ''}
+            <p class="error-message">${escapeHtml(s.message)}</p>
+            ${s.details ? `<details><summary>Details</summary><pre>${escapeHtml(s.details)}</pre></details>` : ''}
           </div>
           <button class="btn btn-primary" id="resetReceiveBtn">Try again</button>`;
 
@@ -451,7 +515,7 @@
     if (codeInput) {
       codeInput.addEventListener('input', () => {
         const code = codeInput.value.trim();
-        setReceiveState(code ? { status: STATUS.CODE_ENTERED, code } : { status: STATUS.IDLE });
+        setReceiveState({ status: code ? STATUS.CODE_ENTERED : STATUS.IDLE, code: code || undefined });
         if (receiveBtn) receiveBtn.disabled = !code;
       });
       codeInput.addEventListener('keydown', (e) => {
@@ -460,8 +524,23 @@
     }
 
     receiveBtn?.addEventListener('click', handleReceive);
-    $('openFolderBtn')?.addEventListener('click', () => window.wormhole.openFolder(s.path));
+    
+    const folderPath = s.extractedPath || s.path;
+    $('openFolderBtn')?.addEventListener('click', () => window.wormhole.openFolder(folderPath));
     $('resetReceiveBtn')?.addEventListener('click', () => setReceiveState({ status: STATUS.IDLE }));
+
+    // Decrypt prompt listeners
+    $('decryptPassword')?.addEventListener('input', (e) => {
+      setReceivePassword(e.target.value);
+    });
+    $('decryptPassword')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && state.receive.password?.length >= MIN_PASSWORD_LENGTH) handleDecrypt();
+    });
+    $('toggleDecryptPassword')?.addEventListener('click', toggleReceiveShowPassword);
+    $('decryptBtn')?.addEventListener('click', handleDecrypt);
+    $('skipDecryptBtn')?.addEventListener('click', () => {
+      setReceiveState({ status: STATUS.SUCCESS, isEncrypted: false });
+    });
   }
 
   async function handleReceive() {
@@ -473,12 +552,59 @@
       const result = await window.wormhole.receive(code);
 
       if (result.success) {
-        setReceiveState({ status: STATUS.SUCCESS, filename: result.data.filename, path: result.data.savedPath });
+        if (result.data.isEncrypted) {
+          setReceiveState({
+            status: STATUS.DECRYPT_PROMPT,
+            filename: result.data.filename,
+            path: result.data.savedPath,
+            isEncrypted: true,
+            password: '',
+            showPassword: false,
+          });
+        } else {
+          setReceiveState({
+            status: STATUS.SUCCESS,
+            filename: result.data.filename,
+            path: result.data.savedPath,
+            isEncrypted: false,
+          });
+        }
       } else {
         setReceiveState({ status: STATUS.ERROR, message: result.error.message, details: result.error.details });
       }
     } catch (err) {
       setReceiveState({ status: STATUS.ERROR, message: 'Unexpected error occurred', details: err.message });
+    }
+  }
+
+  async function handleDecrypt() {
+    const { path, password } = state.receive;
+    if (!password || password.length < MIN_PASSWORD_LENGTH) return;
+
+    try {
+      setReceiveState({ status: STATUS.DECRYPTING });
+
+      // Extract directory from archive path
+      const lastSep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+      const outputDir = lastSep > 0 ? path.substring(0, lastSep) : path;
+
+      const result = await window.wormhole.decrypt(path, password, outputDir);
+
+      if (result.success) {
+        setReceiveState({
+          status: STATUS.DECRYPT_SUCCESS,
+          extractedPath: result.data.extractedPath,
+          fileCount: result.data.fileCount,
+        });
+      } else {
+        setReceiveState({
+          status: STATUS.ERROR,
+          message: result.error.message,
+          details: result.error.details,
+        });
+      }
+    } catch (err) {
+      setReceiveState({ status: STATUS.ERROR, message: 'Decryption failed', details: err.message });
     }
   }
 
