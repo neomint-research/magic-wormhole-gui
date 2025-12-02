@@ -1,20 +1,27 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { app } from 'electron';
-import { getReceiveDir } from './paths';
+import { getReceiveDir, isPortableMode, getPortableDataDir } from './paths';
 
 /**
  * Allowed root directories for send operations.
  * Users can only send files from these locations.
  */
 function getAllowedSendRoots(): string[] {
-  return [
+  const roots = [
     app.getPath('home'),
     app.getPath('documents'),
     app.getPath('downloads'),
     app.getPath('desktop'),
     app.getPath('temp'),
   ];
+
+  // In portable mode, also allow the app's data directory
+  if (isPortableMode()) {
+    roots.push(getPortableDataDir());
+  }
+
+  return roots;
 }
 
 /**

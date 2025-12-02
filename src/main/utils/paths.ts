@@ -5,6 +5,32 @@ import { app } from 'electron';
 import { TEMP_SUBDIR, RECEIVE_SUBDIR, ARCHIVE_PREFIX, CLEANUP_MAX_AGE_MS } from '../../shared/constants';
 
 /**
+ * Detects if running in portable mode.
+ * Portable mode is indicated by a .portable marker file in the app directory.
+ */
+export function isPortableMode(): boolean {
+  const portableMarker = path.join(path.dirname(app.getPath('exe')), '.portable');
+  return fs.existsSync(portableMarker);
+}
+
+/**
+ * Gets the portable data directory path.
+ */
+export function getPortableDataDir(): string {
+  return path.join(path.dirname(app.getPath('exe')), 'data');
+}
+
+/**
+ * Gets the base data directory (portable-aware).
+ */
+function getDataDir(): string {
+  if (isPortableMode()) {
+    return getPortableDataDir();
+  }
+  return app.getPath('userData');
+}
+
+/**
  * Converts Windows path to Docker-compatible path.
  * C:\\Users\\Name\\file.txt -> /c/Users/Name/file.txt
  */
@@ -25,9 +51,11 @@ export function toDockerPath(windowsPath: string): string {
 
 /**
  * Gets or creates the temp directory for archives.
+ * In portable mode, uses local data directory.
  */
 export function getTempDir(): string {
-  const tempDir = path.join(app.getPath('temp'), TEMP_SUBDIR);
+  const baseDir = isPortableMode() ? getDataDir() : app.getPath('temp');
+  const tempDir = path.join(baseDir, TEMP_SUBDIR);
   
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
@@ -38,9 +66,11 @@ export function getTempDir(): string {
 
 /**
  * Gets or creates the receive directory.
+ * In portable mode, uses local data directory.
  */
 export function getReceiveDir(): string {
-  const receiveDir = path.join(app.getPath('documents'), RECEIVE_SUBDIR);
+  const baseDir = isPortableMode() ? getDataDir() : app.getPath('documents');
+  const receiveDir = path.join(baseDir, RECEIVE_SUBDIR);
   
   if (!fs.existsSync(receiveDir)) {
     fs.mkdirSync(receiveDir, { recursive: true });

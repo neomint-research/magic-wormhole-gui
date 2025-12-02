@@ -1,9 +1,14 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { registerIpcHandlers } from './ipc/handlers';
-import { cleanupTempDir } from './utils/paths';
+import { cleanupTempDir, isPortableMode, getPortableDataDir } from './utils/paths';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Configure portable mode before app is ready
+if (isPortableMode()) {
+  app.setPath('userData', getPortableDataDir());
+}
 
 // Single instance lock - prevents multiple instances competing for resources
 const gotTheLock = app.requestSingleInstanceLock();

@@ -10,7 +10,10 @@
     "build:docker": "docker build -t wormhole-cli ./docker",
     "dev": "npm run build:ts && npm run copy:static && electron .",
     "copy:static": "copy src\\renderer\\index.html build\\renderer\\ && copy src\\renderer\\styles.css build\\renderer\\ && copy src\\renderer\\bundle.js build\\renderer\\",
-    "dist": "npm run build:ts && npm run copy:static && electron-builder"
+    "dist": "npm run build:ts && npm run copy:static && electron-builder",
+    "dist:win": "npm run build:ts && npm run copy:static && electron-builder --win",
+    "dist:mac": "npm run build:ts && npm run copy:static && electron-builder --mac",
+    "dist:linux": "npm run build:ts && npm run copy:static && electron-builder --linux"
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
@@ -26,33 +29,71 @@
     "typescript": "^5.3.0"
   },
   "build": {
-    "appId": "com.wormhole.desktop",
-    "productName": "Wormhole",
+    "appId": "com.neomint.wormhole-desktop",
+    "productName": "Wormhole Desktop",
+    "copyright": "Copyright © 2025 SKR",
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "assets"
     },
     "files": [
-      "build/**/*",
-      "assets/**/*"
+      "build/**/*"
     ],
     "extraResources": [
       {
         "from": "node_modules/7zip-bin",
         "to": "7zip-bin",
-        "filter": [
-          "**/*"
-        ]
+        "filter": ["**/*"]
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "publisherName": "SKR"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Wormhole Desktop",
+      "uninstallDisplayName": "Wormhole Desktop",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "installerSidebar": null,
+      "license": "LICENSE",
+      "include": "build-resources/installer.nsh"
     },
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
     },
     "linux": {
-      "target": "AppImage"
+      "target": ["AppImage", "deb"],
+      "icon": "assets",
+      "category": "Utility",
+      "maintainer": "research@neomint.com"
     }
   }
 }
