@@ -231,7 +231,7 @@
 
         return `
           <div class="dropzone dropzone-compact" id="dropzone">
-            <span class="dropzone-text-small">Drop more files or <button class="link-btn link-btn-small" id="browseFilesBtn">browse</button></span>
+            <span class="dropzone-text-small">Drop more or <button class="link-btn link-btn-small" id="browseFilesBtn">browse files</button> / <button class="link-btn link-btn-small" id="browseFolderBtn">folder</button></span>
           </div>
           <div class="file-list-container">
             <div class="file-list-header">
@@ -352,7 +352,8 @@
 
     const paths = [];
     for (let i = 0; i < files.length; i++) {
-      if (files[i].path) paths.push(files[i].path);
+      const path = window.wormhole.getPathForFile(files[i]);
+      if (path) paths.push(path);
     }
     if (paths.length) addFiles(paths);
   }

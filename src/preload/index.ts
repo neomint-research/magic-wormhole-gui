@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   WormholeAPI,
   Result,
@@ -39,6 +39,10 @@ const api: WormholeAPI = {
 
   copyToClipboard: (text: string): Promise<void> => {
     return ipcRenderer.invoke('clipboard:write', text);
+  },
+
+  getPathForFile: (file: File): string => {
+    return webUtils.getPathForFile(file);
   },
 };
 

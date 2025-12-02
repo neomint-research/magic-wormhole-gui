@@ -156,6 +156,7 @@ export interface WormholeAPI {
   getFolderPath: () => Promise<string[] | null>;
   openFolder: (path: string) => Promise<void>;
   copyToClipboard: (text: string) => Promise<void>;
+  getPathForFile: (file: File) => string;
 }
 
 declare global {
