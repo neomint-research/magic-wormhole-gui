@@ -9,6 +9,10 @@ dist/
 out/
 *.tsbuildinfo
 
+# Compiled TypeScript in source (should only exist in build/)
+src/**/*.js
+src/**/*.js.map
+
 # Electron
 release/
 *.asar

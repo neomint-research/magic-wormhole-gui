@@ -22,7 +22,7 @@ import {
   createArchive,
   createEncryptedArchive,
   extractEncryptedArchive,
-  isEncrypted7z,
+  is7zArchive,
   needsArchiving,
 } from './archiver';
 
@@ -190,7 +190,7 @@ export async function receive(request: ReceiveRequest): Promise<Result<ReceiveRe
     data: {
       filename: path.basename(receivedFile),
       savedPath: receivedFile,
-      isEncrypted: isEncrypted7z(receivedFile),
+      isEncrypted: is7zArchive(receivedFile),
     },
   };
 }

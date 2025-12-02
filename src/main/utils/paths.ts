@@ -115,8 +115,8 @@ export function cleanupTempDir(): void {
         fs.unlinkSync(filePath);
       }
     }
-  } catch {
-    // Ignore cleanup errors
+  } catch (err) {
+    console.warn('Temp cleanup failed:', err instanceof Error ? err.message : 'Unknown error');
   }
 }
 
@@ -136,8 +136,8 @@ export function getFirstFileInDir(dir: string): string | null {
         return filePath;
       }
     }
-  } catch {
-    // Ignore errors
+  } catch (err) {
+    console.warn('Failed to read directory:', err instanceof Error ? err.message : 'Unknown error');
   }
   
   return null;

@@ -72,11 +72,48 @@ npm run dist:linux     # Linux
 **Structure:**
 ```
 src/
-├── main/       # Electron main process, IPC handlers, services
-├── preload/    # Secure context bridge API
-├── renderer/   # UI (vanilla JS, CSS)
-└── shared/     # Types, constants
+├── main/           # Electron main process
+│   ├── index.ts    # App initialization, window management
+│   ├── ipc/        # IPC handlers with input validation
+│   ├── services/   # Docker, wormhole CLI, archiver logic
+│   └── utils/      # Path handling, validation, process management
+├── preload/        # Secure context bridge (exposes typed API)
+├── renderer/       # UI (vanilla JS, CSS, no framework)
+└── shared/         # TypeScript types, constants, error codes
 ```
+
+**Code Quality:**
+
+The codebase follows enterprise-grade practices:
+
+- TypeScript strict mode enabled
+- Result type pattern for error handling (no thrown exceptions in IPC)
+- Double input validation (IPC handlers + services)
+- Path traversal protection with allowlist
+
+Before committing, ensure no compiled files exist in `src/`:
+```bash
+# These should be in build/, not src/
+git status src/**/*.js src/**/*.js.map
+```
+
+## Security
+
+Electron security configuration follows best practices:
+
+| Setting | Value | Rationale |
+|---------|-------|-----------|
+| `nodeIntegration` | `false` | Renderer cannot access Node.js APIs |
+| `contextIsolation` | `true` | Preload runs in isolated context |
+| `sandbox` | `false` | Required for drag-drop `file.path` access |
+
+The preload script exposes only specific IPC invoke functions, never raw `ipcRenderer`. Content Security Policy restricts script sources to `'self'`.
+
+**Path Security:**
+- Send operations restricted to user directories (home, documents, downloads, desktop)
+- Receive operations write to dedicated `wormhole-received/` folder
+- Path traversal (`..`) blocked at validation layer
+- Archive extraction checks size limits (50 GB max)
 
 ## Limitations
 

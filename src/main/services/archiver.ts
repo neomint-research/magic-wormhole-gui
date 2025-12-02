@@ -285,9 +285,10 @@ export async function extractEncryptedArchive(
 }
 
 /**
- * Checks if a file is an encrypted 7z archive.
+ * Checks if a file is a 7z archive (by extension).
+ * Note: Does not verify actual encryption status - only checks file extension.
  */
-export function isEncrypted7z(filePath: string): boolean {
+export function is7zArchive(filePath: string): boolean {
   return filePath.toLowerCase().endsWith('.7z');
 }
 
