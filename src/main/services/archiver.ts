@@ -1,5 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { app } from 'electron';
 import archiver from 'archiver';
 import Seven from 'node-7z';
 import sevenBin from '7zip-bin';
@@ -7,7 +9,74 @@ import { Result, ErrorCode } from '../../shared/types';
 import { ERROR_MESSAGES, MAX_ARCHIVE_SIZE_BYTES } from '../../shared/constants';
 import { getTempDir, generateArchiveName } from '../utils/paths';
 
-const pathTo7zip = sevenBin.path7za;
+/**
+ * Gets the path to 7za executable.
+ * In development: uses node_modules/7zip-bin
+ * In packaged app: uses resources/7zip-bin (extraResources)
+ */
+let _cachedPath: string | null = null;
+
+function get7zipPath(): string {
+  // Return cached path if available
+  if (_cachedPath) {
+    return _cachedPath;
+  }
+
+  // Check if app is packaged (must be called after app is ready)
+  let isPackaged = false;
+  try {
+    isPackaged = app.isPackaged;
+  } catch {
+    // app not ready yet, assume development
+    return sevenBin.path7za;
+  }
+
+  if (!isPackaged) {
+    // Development mode - use node_modules
+    _cachedPath = sevenBin.path7za;
+    return _cachedPath;
+  }
+
+  // Packaged mode - use extraResources
+  const platform = os.platform();
+  const arch = os.arch();
+
+  let binaryName: string;
+  let platformDir: string;
+  let archDir: string;
+
+  switch (platform) {
+    case 'win32':
+      platformDir = 'win';
+      archDir = arch === 'ia32' ? 'ia32' : 'x64';
+      binaryName = '7za.exe';
+      break;
+    case 'darwin':
+      platformDir = 'mac';
+      archDir = arch === 'arm64' ? 'arm64' : 'x64';
+      binaryName = '7za';
+      break;
+    case 'linux':
+      platformDir = 'linux';
+      if (arch === 'arm64') {
+        archDir = 'arm64';
+      } else if (arch === 'arm') {
+        archDir = 'arm';
+      } else {
+        archDir = 'x64';
+      }
+      binaryName = '7za';
+      break;
+    default:
+      // Fallback to sevenBin path
+      _cachedPath = sevenBin.path7za;
+      return _cachedPath;
+  }
+
+  _cachedPath = path.join(process.resourcesPath, '7zip-bin', platformDir, archDir, binaryName);
+  console.log('7zip path resolved:', _cachedPath);
+  return _cachedPath;
+}
 
 export interface ArchiveResult {
   archivePath: string;
@@ -61,7 +130,7 @@ export async function createEncryptedArchive(
       let fileCount = 0;
 
       const stream = Seven.add(archivePath, paths, {
-        $bin: pathTo7zip,
+        $bin: get7zipPath(),
         password: password,
         method: ['he'], // Header encryption - hides filenames
         recursive: true,
@@ -229,7 +298,7 @@ export async function extractEncryptedArchive(
       let fileCount = 0;
 
       const stream = Seven.extractFull(archivePath, outputDir, {
-        $bin: pathTo7zip,
+        $bin: get7zipPath(),
         password: password,
         yes: true, // Auto-confirm overwrites
       });
