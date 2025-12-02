@@ -79,3 +79,8 @@ temp/
 # Electron builder cache
 .cache/
 electron-builder.yml.bak
+
+# Icon development files (keep generated icons, exclude dev artifacts)
+assets/variants/
+assets/preview.html
+assets/icon-concept-*.svg

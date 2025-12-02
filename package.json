@@ -10,6 +10,7 @@
     "build:docker": "docker build -t wormhole-cli ./docker",
     "dev": "npm run build:ts && npm run copy:static && electron .",
     "copy:static": "copy src\\renderer\\index.html build\\renderer\\ && copy src\\renderer\\styles.css build\\renderer\\ && copy src\\renderer\\bundle.js build\\renderer\\",
+    "icons": "node scripts/convert-icons.js",
     "dist": "npm run build:ts && npm run copy:static && electron-builder",
     "dist:win": "npm run build:ts && npm run copy:static && electron-builder --win",
     "dist:mac": "npm run build:ts && npm run copy:static && electron-builder --mac",
@@ -26,6 +27,8 @@
     "@types/node-7z": "^2.1.10",
     "electron": "^35.7.5",
     "electron-builder": "^24.9.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.0",
     "typescript": "^5.3.0"
   },
   "build": {
@@ -43,9 +46,15 @@
         "from": "node_modules/7zip-bin",
         "to": "7zip-bin",
         "filter": ["**/*"]
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": ["icon.png", "icon.ico"]
       }
     ],
     "win": {
+      "icon": "assets/icon.ico",
       "target": [
         {
           "target": "nsis",

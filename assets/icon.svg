@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="mintGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00D9A5"/>
+      <stop offset="100%" style="stop-color:#00B894"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <circle cx="256" cy="256" r="240" fill="url(#mintGrad)"/>
+  
+  <!-- Portal ring -->
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#fff" stroke-width="20" opacity="0.4"/>
+  <circle cx="256" cy="256" r="120" fill="none" stroke="#fff" stroke-width="8"/>
+  
+  <!-- Worm - cleaner geometric S-curve -->
+  <path 
+    d="M 100 300 
+       Q 150 300, 180 256
+       Q 210 212, 256 212
+       Q 302 212, 332 256
+       Q 362 300, 412 300"
+    fill="none" 
+    stroke="#fff" 
+    stroke-width="32" 
+    stroke-linecap="round"/>
+  
+  <!-- Worm head - slightly larger, friendly -->
+  <circle cx="412" cy="300" r="26" fill="#fff"/>
+  
+  <!-- Eye -->
+  <circle cx="420" cy="294" r="7" fill="#00B894"/>
+  
+  <!-- Subtle smile/expression line -->
+  <path 
+    d="M 408 308 Q 414 314, 422 312"
+    fill="none" 
+    stroke="#00B894" 
+    stroke-width="3" 
+    stroke-linecap="round"/>
+</svg>

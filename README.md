@@ -1,4 +1,12 @@
-# Wormhole Desktop
+<p align="center">
+  <img src="assets/icon.svg" width="128" height="128" alt="Wormhole Desktop">
+</p>
+
+<h1 align="center">Wormhole Desktop</h1>
+
+<p align="center">
+  Secure peer-to-peer file transfers with optional AES-256 encryption
+</p>
 
 ## Overview
 

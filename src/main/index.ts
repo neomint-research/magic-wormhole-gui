@@ -3,6 +3,14 @@ import * as path from 'path';
 import { registerIpcHandlers } from './ipc/handlers';
 import { cleanupTempDir, isPortableMode, getPortableDataDir } from './utils/paths';
 
+function getIconPath(): string {
+  const iconName = process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'assets', iconName);
+  }
+  return path.join(__dirname, '../../assets', iconName);
+}
+
 let mainWindow: BrowserWindow | null = null;
 
 // Configure portable mode before app is ready
@@ -56,6 +64,7 @@ function createWindow(): void {
     maximizable: false,
     fullscreenable: false,
     autoHideMenuBar: true,
+    icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
