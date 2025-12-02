@@ -5,6 +5,40 @@ import { cleanupTempDir } from './utils/paths';
 
 let mainWindow: BrowserWindow | null = null;
 
+// Single instance lock - prevents multiple instances competing for resources
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  // Another instance is already running - quit immediately
+  app.quit();
+} else {
+  // Handle second instance launch attempt
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+  });
+
+  app.whenReady().then(() => {
+    registerIpcHandlers();
+    createWindow();
+  });
+
+  app.on('window-all-closed', () => {
+    cleanupTempDir();
+    app.quit();
+  });
+
+  app.on('activate', () => {
+    if (mainWindow === null) {
+      createWindow();
+    }
+  });
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 480,
@@ -32,19 +66,3 @@ function createWindow(): void {
     mainWindow = null;
   });
 }
-
-app.whenReady().then(() => {
-  registerIpcHandlers();
-  createWindow();
-});
-
-app.on('window-all-closed', () => {
-  cleanupTempDir();
-  app.quit();
-});
-
-app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
-});
