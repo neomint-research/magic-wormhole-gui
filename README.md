@@ -20,6 +20,7 @@ Built for users who need fast, private transfers without trusting intermediaries
 - Optional AES-256 password encryption
 - Cross-platform (Windows, macOS, Linux)
 - Portable mode (run from USB, no installation)
+- Smart installer (detects existing installation, offers upgrade/uninstall)
 - Dark/Light theme
 
 ## Quick Start
@@ -60,6 +61,20 @@ npm run dev
 npm run dist:win    # Windows (NSIS + ZIP)
 npm run dist:mac    # macOS
 npm run dist:linux  # Linux
+```
+
+**Release workflow (Semantic Versioning):**
+```bash
+npm run release:patch  # Bugfix: 1.0.0 → 1.0.1
+npm run release:minor  # Feature: 1.0.1 → 1.1.0
+npm run release:major  # Breaking: 1.1.0 → 2.0.0
+```
+
+Version scripts without build:
+```bash
+npm run version:patch  # Only increment version
+npm run version:minor
+npm run version:major
 ```
 
 **Project structure:**
