@@ -10,9 +10,9 @@
 
 ## Overview
 
-Desktop GUI for secure peer-to-peer file transfers using [Magic Wormhole](https://magic-wormhole.readthedocs.io/). Files transfer directly between devices without cloud storage or accounts. Optional AES-256 encryption adds password protection with hidden filenames.
+Desktop GUI for secure peer-to-peer file transfers using [Magic Wormhole](https://magic-wormhole.readthedocs.io/). Files transfer directly between devices without cloud storage or accounts.
 
-Built for users who need fast, private transfers without trusting intermediaries.
+Optional AES-256 encryption adds a user-controlled encryption layer on top of the transfer. This follows the principle that only encryption where you define your own key can be truly trusted - the password never leaves your device and is never transmitted.
 
 ## Features
 
@@ -64,18 +64,40 @@ npm run dist:linux  # Linux
 ```
 
 **Release workflow (Semantic Versioning):**
+
+Quick release (version bump + build in one command):
 ```bash
 npm run release:patch  # Bugfix: 1.0.0 → 1.0.1
 npm run release:minor  # Feature: 1.0.1 → 1.1.0
 npm run release:major  # Breaking: 1.1.0 → 2.0.0
 ```
 
-Version scripts without build:
+Full release process:
 ```bash
-npm run version:patch  # Only increment version
-npm run version:minor
-npm run version:major
+# 1. Commit all changes
+git add -A
+git commit -m "feat/fix: description of changes"
+
+# 2. Bump version (choose one)
+npm run version:patch   # or version:minor or version:major
+
+# 3. Commit version bump
+git add package.json
+git commit -m "release: vX.Y.Z"
+
+# 4. Create git tag
+git tag vX.Y.Z
+
+# 5. Build distribution
+npm run dist:win        # or dist:mac or dist:linux
+
+# 6. Push to remote
+git push && git push --tags
 ```
+
+Output files in `dist/`:
+- `Wormhole Desktop Setup X.Y.Z.exe` (Windows installer)
+- `Wormhole Desktop-X.Y.Z-win.zip` (Windows portable)
 
 **Project structure:**
 ```
