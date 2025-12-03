@@ -1,6 +1,6 @@
 {
   "name": "wormhole-desktop",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Secure peer-to-peer file transfers with optional AES-256 encryption",
   "author": "SKR",
   "license": "MIT",
@@ -55,12 +55,17 @@
       {
         "from": "node_modules/7zip-bin",
         "to": "7zip-bin",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "assets",
         "to": "assets",
-        "filter": ["icon.png", "icon.ico"]
+        "filter": [
+          "icon.png",
+          "icon.ico"
+        ]
       }
     ],
     "win": {
@@ -68,11 +73,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "publisherName": "SKR"
@@ -94,7 +103,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "assets/icon.icns",
@@ -102,12 +114,23 @@
     },
     "dmg": {
       "contents": [
-        { "x": 130, "y": 220 },
-        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets",
       "category": "Utility",
       "maintainer": "research@neomint.com"
