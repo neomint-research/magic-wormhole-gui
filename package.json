@@ -7,14 +7,17 @@
   "main": "build/main/index.js",
   "scripts": {
     "build:ts": "tsc",
+    "build:renderer": "node scripts/build-renderer.js",
     "build:docker": "docker build -t wormhole-cli ./docker",
-    "dev": "npm run build:ts && npm run copy:static && electron .",
+    "build": "npm run build:ts && npm run build:renderer && npm run copy:static",
+    "dev": "npm run build && electron .",
+    "watch:renderer": "node scripts/build-renderer.js --watch",
     "copy:static": "node scripts/copy-static.js",
     "icons": "node scripts/convert-icons.js",
-    "dist": "npm run build:ts && npm run copy:static && electron-builder",
-    "dist:win": "npm run build:ts && npm run copy:static && electron-builder --win",
-    "dist:mac": "npm run build:ts && npm run copy:static && electron-builder --mac",
-    "dist:linux": "npm run build:ts && npm run copy:static && electron-builder --linux"
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
     "7zip-bin": "^5.2.0",
@@ -27,6 +30,7 @@
     "@types/node-7z": "^2.1.10",
     "electron": "^35.7.5",
     "electron-builder": "^24.9.0",
+    "esbuild": "^0.24.0",
     "png-to-ico": "^2.1.8",
     "sharp": "^0.33.0",
     "typescript": "^5.3.0"

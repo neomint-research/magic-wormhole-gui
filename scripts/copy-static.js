@@ -1,6 +1,6 @@
 /**
  * Cross-platform script to copy static renderer files to build directory.
- * Replaces Windows-only 'copy' command for macOS/Linux compatibility.
+ * Note: bundle.js is now built by esbuild from TypeScript source.
  */
 
 const fs = require('fs');
@@ -9,7 +9,8 @@ const path = require('path');
 const srcDir = path.join(__dirname, '..', 'src', 'renderer');
 const destDir = path.join(__dirname, '..', 'build', 'renderer');
 
-const files = ['index.html', 'styles.css', 'bundle.js'];
+// Only static files - bundle.js is built from TypeScript
+const files = ['index.html', 'styles.css'];
 
 // Ensure destination directory exists
 if (!fs.existsSync(destDir)) {

@@ -67,7 +67,7 @@ npm run dist:linux  # Linux
 src/
 ├── main/       # Electron main process, IPC, services
 ├── preload/    # Context bridge API
-├── renderer/   # UI (vanilla JS/CSS)
+├── renderer/   # UI (TypeScript/CSS)
 └── shared/     # Types, constants
 ```
 
