@@ -65,4 +65,5 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCode.EXTRACT_FAILED]: 'Failed to extract archive.',
   [ErrorCode.ARCHIVE_TOO_LARGE]: 'Archive exceeds maximum allowed size (50 GB).',
   [ErrorCode.INVALID_PASSWORD]: 'Invalid password provided.',
+  [ErrorCode.SECURE_DELETE_FAILED]: 'Failed to securely delete one or more files.',
 };

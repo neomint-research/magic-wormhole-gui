@@ -34,6 +34,9 @@ export enum ErrorCode {
 
   // Validation errors (input)
   INVALID_PASSWORD = 'E_INVALID_PASSWORD',
+
+  // Secure delete errors
+  SECURE_DELETE_FAILED = 'E_SECURE_DELETE_FAILED',
 }
 
 // ============================================================
@@ -103,6 +106,20 @@ export interface ProgressEvent {
 export interface TransferCompleteEvent {
   type: 'send' | 'receive';
   success: boolean;
+}
+
+// ============================================================
+// SECURE DELETE TYPES
+// ============================================================
+
+export interface SecureDeleteRequest {
+  tempPaths?: string[];
+  originalPaths?: string[];
+}
+
+export interface SecureDeleteResponse {
+  deletedCount: number;
+  failedPaths?: string[];
 }
 
 // ============================================================
@@ -189,6 +206,8 @@ export interface WormholeAPI {
   // Text message support
   prepareTextMessage: (text: string) => Promise<Result<TextPrepareResponse>>;
   readTextMessage: (filePath: string) => Promise<Result<TextReadResponse>>;
+  // Secure delete support
+  secureDelete: (request: SecureDeleteRequest) => Promise<Result<SecureDeleteResponse>>;
 }
 
 declare global {

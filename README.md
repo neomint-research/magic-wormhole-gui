@@ -19,10 +19,29 @@ Optional AES-256 encryption adds a user-controlled encryption layer on top of th
 - Drag and drop files and folders
 - Send text messages (credentials, code snippets, notes)
 - Optional AES-256 password encryption (files and messages)
+- Secure delete: 3-pass overwrite for temp files and originals
 - Cross-platform (Windows, macOS, Linux)
 - Portable mode (run from USB, no installation)
 - Smart installer (detects existing installation, offers upgrade/uninstall)
 - Dark/Light theme
+
+## Changelog
+
+### 2.2.0
+- **Secure Delete**: Optional 3-pass overwrite (random, random, zeros) for temp files after transfer
+- **Delete Originals**: Option to securely delete original files after successful transfer
+- **Confirmation Dialog**: Type "DELETE" to confirm original file deletion
+- **SSD Notice**: Warning that forensic recovery cannot be fully prevented on SSDs and CoW filesystems
+- **Security Hardening**: Symlink protection, null-byte injection prevention, path traversal blocking
+
+### 2.1.0
+- Text message support
+- UI polish and animations
+
+### 2.0.0
+- Complete TypeScript rewrite
+- AES-256 encryption with 7-Zip
+- NSIS installer with upgrade detection
 
 ## Quick Start
 

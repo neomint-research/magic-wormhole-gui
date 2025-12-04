@@ -90,6 +90,8 @@ const ICONS = {
   lock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
   eye: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
   eyeOff: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+  trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  warning: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -126,6 +128,13 @@ interface SendState {
   encrypted?: boolean;
   message?: string;
   details?: string;
+  // Secure delete options
+  secureDeleteTemp: boolean;
+  secureDeleteOriginal: boolean;
+  pendingDeletePaths: string[];
+  pendingTempPaths: string[];
+  deleteConfirmInput?: string;
+  deleteInProgress?: boolean;
 }
 
 interface ReceiveState {
@@ -160,7 +169,7 @@ type StateListener = (state: AppState) => void;
 let state: AppState = {
   tab: 'send',
   docker: DOCKER.CHECKING,
-  send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null, sendMode: 'file', textMessage: '' },
+  send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null, sendMode: 'file', textMessage: '', secureDeleteTemp: false, secureDeleteOriginal: false, pendingDeletePaths: [], pendingTempPaths: [] },
   receive: { status: STATUS.IDLE, progress: null },
 };
 
@@ -228,7 +237,22 @@ function removeFile(index: number): void {
 }
 
 function clearFiles(): void {
-  setSendState({ status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, sendMode: 'file', textMessage: '' });
+  setSendState({
+    status: STATUS.IDLE,
+    items: [],
+    encrypt: false,
+    password: '',
+    showPassword: false,
+    sendMode: 'file',
+    textMessage: '',
+    // Reset secure delete state
+    secureDeleteTemp: false,
+    secureDeleteOriginal: false,
+    pendingDeletePaths: [],
+    pendingTempPaths: [],
+    deleteConfirmInput: '',
+    deleteInProgress: false,
+  });
 }
 
 function setTextMessage(text: string): void {
@@ -341,10 +365,11 @@ function getSendHTML(s: SendState): string {
             <button class="clear-text-btn" id="clearTextBtn">Clear</button>
           </div>
         </div>
-        <div class="encrypt-row">
-          <label class="encrypt-toggle">
+        <div class="options-section">
+          <div class="options-header">Before transfer</div>
+          <label class="options-item">
             <input type="checkbox" id="encryptCheck" ${s.encrypt ? 'checked' : ''}>
-            <span class="encrypt-label">${ICONS.lock} Encrypt</span>
+            <span class="options-label">${ICONS.lock} Encrypt</span>
           </label>
           <div class="password-wrapper ${s.encrypt ? '' : 'hidden'}">
             <input type="${s.showPassword ? 'text' : 'password'}" 
@@ -357,6 +382,13 @@ function getSendHTML(s: SendState): string {
               ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
             </button>
           </div>
+        </div>
+        <div class="options-section">
+          <div class="options-header">After transfer</div>
+          <label class="options-item">
+            <input type="checkbox" id="secureDeleteTempCheck" ${s.secureDeleteTemp ? 'checked' : ''}>
+            <span class="options-label">${ICONS.trash} Delete temp files</span>
+          </label>
         </div>
         <button class="btn btn-primary ${s.encrypt ? 'btn-encrypt' : ''}" id="sendBtn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>`;
 
@@ -381,10 +413,11 @@ function getSendHTML(s: SendState): string {
           </div>
           <div class="file-list" id="fileList">${items}</div>
         </div>
-        <div class="encrypt-row">
-          <label class="encrypt-toggle">
+        <div class="options-section">
+          <div class="options-header">Before transfer</div>
+          <label class="options-item">
             <input type="checkbox" id="encryptCheck" ${s.encrypt ? 'checked' : ''}>
-            <span class="encrypt-label">${ICONS.lock} Encrypt</span>
+            <span class="options-label">${ICONS.lock} Encrypt</span>
           </label>
           <div class="password-wrapper ${s.encrypt ? '' : 'hidden'}">
             <input type="${s.showPassword ? 'text' : 'password'}" 
@@ -397,6 +430,19 @@ function getSendHTML(s: SendState): string {
               ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
             </button>
           </div>
+        </div>
+        <div class="options-section">
+          <div class="options-header">After transfer</div>
+          <label class="options-item">
+            <input type="checkbox" id="secureDeleteTempCheck" ${s.secureDeleteTemp ? 'checked' : ''}>
+            <span class="options-label">${ICONS.trash} Delete temp files</span>
+          </label>
+          <label class="options-item${s.secureDeleteOriginal ? ' options-item-danger' : ''}">
+            <input type="checkbox" id="secureDeleteOriginalCheck" ${s.secureDeleteOriginal ? 'checked' : ''}>
+            <span class="options-label">${ICONS.warning} Delete original files</span>
+            <span class="options-badge-danger">Irreversible</span>
+          </label>
+          ${s.secureDeleteOriginal ? '<div class="options-warning">Originals will be permanently deleted after successful transfer</div>' : ''}
         </div>
         <button class="btn btn-primary ${s.encrypt ? 'btn-encrypt' : ''}" id="sendBtn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>`;
 
@@ -432,7 +478,32 @@ function getSendHTML(s: SendState): string {
             <p class="progress-detail">${s.progress.transferred} / ${s.progress.total}</p>
           </div>`;
       } else if (s.transferPhase === 'complete') {
-        transferStatus = `<div class="transfer-status transfer-complete"><span class="complete-check">${ICONS.check}</span> Transfer complete</div>`;
+        // Check if we need to show delete confirmation dialog
+        if (s.secureDeleteOriginal && s.pendingDeletePaths.length > 0 && !s.deleteInProgress) {
+          const fileList = s.pendingDeletePaths.map(p => `<li>${escapeHtml(p.split(/[/\\]/).pop() || p)}</li>`).join('');
+          const confirmDisabled = s.deleteConfirmInput !== 'DELETE';
+          transferStatus = `
+            <div class="delete-confirm-dialog">
+              <div class="delete-confirm-header">
+                <span class="delete-confirm-icon">${ICONS.warning}</span>
+                <h3>Delete original files?</h3>
+              </div>
+              <p class="delete-confirm-text">This action is irreversible.</p>
+              <p class="delete-ssd-note">Note: On SSDs and modern file systems (APFS, Btrfs), forensic recovery cannot be fully prevented.</p>
+              <ul class="delete-file-list">${fileList}</ul>
+              <div class="delete-confirm-input-wrapper">
+                <input type="text" id="deleteConfirmInput" class="delete-confirm-input" placeholder="Type DELETE to confirm" value="${s.deleteConfirmInput || ''}">
+              </div>
+              <div class="delete-confirm-buttons">
+                <button class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn" ${confirmDisabled ? 'disabled' : ''}>Delete</button>
+              </div>
+            </div>`;
+        } else if (s.deleteInProgress) {
+          transferStatus = `<div class="transfer-status transfer-deleting"><div class="spinner-small"></div> Securely deleting files...</div>`;
+        } else {
+          transferStatus = `<div class="transfer-status transfer-complete"><span class="complete-check">${ICONS.check}</span> Transfer complete</div>`;
+        }
       }
       
       return `
@@ -539,6 +610,32 @@ function attachSendListeners(s: SendState): void {
   }
   $('clearTextBtn')?.addEventListener('click', clearFiles);
 
+  // Secure delete checkbox listeners
+  $('secureDeleteTempCheck')?.addEventListener('change', (e: Event) => {
+    setSendState({ secureDeleteTemp: (e.target as HTMLInputElement).checked });
+  });
+  $('secureDeleteOriginalCheck')?.addEventListener('change', (e: Event) => {
+    setSendState({ secureDeleteOriginal: (e.target as HTMLInputElement).checked });
+  });
+
+  // Delete confirmation dialog listeners
+  $('deleteConfirmInput')?.addEventListener('input', (e: Event) => {
+    const value = (e.target as HTMLInputElement).value;
+    setSendState({ deleteConfirmInput: value });
+    // Restore focus after re-render
+    requestAnimationFrame(() => {
+      const input = $('deleteConfirmInput') as HTMLInputElement | null;
+      if (input) {
+        input.focus();
+        input.setSelectionRange(value.length, value.length);
+      }
+    });
+  });
+  $('cancelDeleteBtn')?.addEventListener('click', () => {
+    setSendState({ secureDeleteOriginal: false, pendingDeletePaths: [], deleteConfirmInput: '' });
+  });
+  $('confirmDeleteBtn')?.addEventListener('click', handleSecureDeleteOriginal);
+
   const copyBtn = $('copyBtn');
   const codeDisplay = $('codeDisplay');
   if (copyBtn && codeDisplay) {
@@ -609,7 +706,7 @@ async function browseFolder(): Promise<void> {
 }
 
 async function handleSend(): Promise<void> {
-  const { items, encrypt, password, sendMode, textMessage } = state.send;
+  const { items, encrypt, password, sendMode, textMessage, secureDeleteTemp, secureDeleteOriginal } = state.send;
   
   // Validate based on mode
   if (sendMode === 'text') {
@@ -618,6 +715,12 @@ async function handleSend(): Promise<void> {
     if (!items.length) return;
   }
   if (encrypt && password.length < MIN_PASSWORD_LENGTH) return;
+
+  // Store paths for potential secure deletion BEFORE clearing state
+  const originalPaths = sendMode === 'file' ? items.map(i => i.path) : [];
+
+  // Track text message temp file for cleanup on error
+  let textTempPath: string | undefined;
 
   try {
     setSendState({ status: STATUS.PACKAGING });
@@ -637,6 +740,7 @@ async function handleSend(): Promise<void> {
         return;
       }
       paths = [prepareResult.data.filePath];
+      textTempPath = prepareResult.data.filePath; // Track for secure delete
     } else {
       paths = items.map(i => i.path);
     }
@@ -645,6 +749,18 @@ async function handleSend(): Promise<void> {
     const result = await window.wormhole.send(paths, encrypt ? password : undefined);
 
     if (result.success) {
+      // Determine which temp paths to delete:
+      // - archivePath: the encrypted 7z archive (if created)
+      // - textTempPath: the plaintext temp file for text messages
+      // Both may need deletion if text message was encrypted
+      const tempPathsToDelete: string[] = [];
+      if (result.data.archivePath) {
+        tempPathsToDelete.push(result.data.archivePath);
+      }
+      if (textTempPath) {
+        tempPathsToDelete.push(textTempPath);
+      }
+      
       setSendState({
         status: STATUS.SUCCESS,
         code: result.data.code,
@@ -655,8 +771,22 @@ async function handleSend(): Promise<void> {
         password: '',
         sendMode: 'file',
         textMessage: '',
+        // Preserve secure delete settings and store paths for later deletion
+        secureDeleteTemp,
+        secureDeleteOriginal,
+        pendingDeletePaths: secureDeleteOriginal ? originalPaths : [],
+        pendingTempPaths: secureDeleteTemp ? tempPathsToDelete : [],
+        deleteConfirmInput: '',
       });
     } else {
+      // Clean up temp files on error if they exist
+      if (textTempPath) {
+        try {
+          await window.wormhole.secureDelete({ tempPaths: [textTempPath] });
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
       setSendState({
         status: STATUS.ERROR,
         message: result.error.message,
@@ -664,10 +794,87 @@ async function handleSend(): Promise<void> {
       });
     }
   } catch (err) {
+    // Clean up temp files on error if they exist
+    if (textTempPath) {
+      try {
+        await window.wormhole.secureDelete({ tempPaths: [textTempPath] });
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
     setSendState({
       status: STATUS.ERROR,
       message: 'Unexpected error occurred',
       details: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Secure Delete
+// ---------------------------------------------------------------------------
+
+/**
+ * Handles automatic secure deletion of temp files after transfer complete.
+ */
+async function handleSecureDeleteTemp(): Promise<void> {
+  const { pendingTempPaths, secureDeleteTemp } = state.send;
+  
+  if (!secureDeleteTemp || pendingTempPaths.length === 0) return;
+  
+  try {
+    await window.wormhole.secureDelete({ tempPaths: pendingTempPaths });
+  } catch (err) {
+    console.error('Failed to securely delete temp files:', err);
+  } finally {
+    // Always clear pendingTempPaths to prevent repeated attempts
+    setSendState({ pendingTempPaths: [] });
+  }
+}
+
+/**
+ * Handles secure deletion of original files after user confirmation.
+ */
+async function handleSecureDeleteOriginal(): Promise<void> {
+  const { pendingDeletePaths, deleteConfirmInput } = state.send;
+  
+  if (deleteConfirmInput !== 'DELETE' || pendingDeletePaths.length === 0) return;
+  
+  setSendState({ deleteInProgress: true });
+  
+  try {
+    const result = await window.wormhole.secureDelete({ originalPaths: pendingDeletePaths });
+    
+    if (result.success) {
+      setSendState({
+        deleteInProgress: false,
+        pendingDeletePaths: [],
+        secureDeleteOriginal: false,
+        deleteConfirmInput: '',
+      });
+    } else {
+      // Show error to user - some files may not have been deleted
+      console.error('Secure delete failed:', result.error);
+      setSendState({
+        status: STATUS.ERROR,
+        message: result.error.message || 'Failed to delete some files',
+        details: result.error.details,
+        deleteInProgress: false,
+        pendingDeletePaths: [],
+        secureDeleteOriginal: false,
+        deleteConfirmInput: '',
+      });
+    }
+  } catch (err) {
+    console.error('Failed to securely delete original files:', err);
+    setSendState({
+      status: STATUS.ERROR,
+      message: 'Failed to securely delete files',
+      details: err instanceof Error ? err.message : String(err),
+      deleteInProgress: false,
+      pendingDeletePaths: [],
+      secureDeleteOriginal: false,
+      deleteConfirmInput: '',
     });
   }
 }
@@ -730,7 +937,7 @@ function getReceiveHTML(s: ReceiveState): string {
           <div class="success-icon">${ICONS.lock}</div>
           <p class="receive-text">This file is encrypted</p>
           <p class="filename">${s.filename}</p>
-          <div class="encrypt-row" style="max-width: 300px; width: 100%;">
+          <div class="decrypt-form">
             <div class="password-wrapper">
               <input type="${s.showPassword ? 'text' : 'password'}" 
                      class="encrypt-password" 
@@ -742,8 +949,8 @@ function getReceiveHTML(s: ReceiveState): string {
                 ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
               </button>
             </div>
+            <button class="btn btn-primary" id="decryptBtn" ${decryptBtnDisabled ? 'disabled' : ''}>Decrypt</button>
           </div>
-          <button class="btn btn-primary btn-encrypt" id="decryptBtn" ${decryptBtnDisabled ? 'disabled' : ''} style="max-width: 300px;">Decrypt</button>
           <button class="btn btn-tertiary" id="skipDecryptBtn">Skip decryption</button>
         </div>`;
 
@@ -999,6 +1206,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.wormhole.onTransferComplete((event: TransferCompleteEvent) => {
     if (event.type === 'send' && state.send.status === STATUS.SUCCESS) {
       setSendState({ transferPhase: 'complete', progress: null });
+      // Automatically trigger secure delete of temp files if enabled
+      handleSecureDeleteTemp();
     }
   });
 

@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { checkDocker } from '../services/docker';
 import { send, receive, decrypt } from '../services/wormhole';
 import { cleanupTempDir, getTempDir } from '../utils/paths';
+import { secureDelete } from '../utils/secure-delete';
 import {
   validateSendPaths,
   validateDecryptOutputDir,
@@ -12,7 +13,7 @@ import {
   validatePassword,
   validateCode,
 } from '../utils/validation';
-import { ErrorCode, ProgressEvent, TextPrepareResponse, TextReadResponse, Result } from '../../shared/types';
+import { ErrorCode, ProgressEvent, TextPrepareResponse, TextReadResponse, SecureDeleteRequest, SecureDeleteResponse, Result } from '../../shared/types';
 import { TEXT_MESSAGE_FILENAME, TEXT_MAX_LENGTH } from '../../shared/constants';
 
 let mainWindow: BrowserWindow | null = null;
@@ -242,5 +243,145 @@ export function registerIpcHandlers(): void {
         error: { code: ErrorCode.PATH_NOT_READABLE, message: 'Failed to read text message' },
       };
     }
+  });
+
+  // ============================================================
+  // SECURE DELETE HANDLERS
+  // ============================================================
+
+  // Securely delete files (overwrite with random data before unlinking)
+  ipcMain.handle('secure:delete', async (_event, request: SecureDeleteRequest): Promise<Result<SecureDeleteResponse>> => {
+    // Type validation - IPC can receive anything
+    if (!request || typeof request !== 'object') {
+      return {
+        success: false,
+        error: {
+          code: ErrorCode.SECURE_DELETE_FAILED,
+          message: 'Invalid request',
+        },
+      };
+    }
+
+    const { tempPaths, originalPaths } = request;
+
+    // Validate arrays if provided
+    if (tempPaths !== undefined && !Array.isArray(tempPaths)) {
+      return {
+        success: false,
+        error: {
+          code: ErrorCode.SECURE_DELETE_FAILED,
+          message: 'tempPaths must be an array',
+        },
+      };
+    }
+    if (originalPaths !== undefined && !Array.isArray(originalPaths)) {
+      return {
+        success: false,
+        error: {
+          code: ErrorCode.SECURE_DELETE_FAILED,
+          message: 'originalPaths must be an array',
+        },
+      };
+    }
+
+    // Validate that at least one path array is provided
+    const hasTempPaths = tempPaths && tempPaths.length > 0;
+    const hasOriginalPaths = originalPaths && originalPaths.length > 0;
+
+    if (!hasTempPaths && !hasOriginalPaths) {
+      return {
+        success: true,
+        data: { deletedCount: 0 },
+      };
+    }
+
+    // Validate temp paths - must be within temp directory
+    if (hasTempPaths) {
+      const tempDir = path.normalize(getTempDir()).toLowerCase();
+      for (const p of tempPaths!) {
+        // Type check
+        if (typeof p !== 'string') {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Path must be a string',
+            },
+          };
+        }
+        // Block null bytes (security risk)
+        if (p.includes('\0')) {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Invalid path - null bytes not allowed',
+            },
+          };
+        }
+        const resolved = path.normalize(path.resolve(p)).toLowerCase();
+        if (!resolved.startsWith(tempDir)) {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Invalid temp path - outside temp directory',
+              details: p,
+            },
+          };
+        }
+      }
+    }
+
+    // Validate original paths - must exist and not contain path traversal
+    if (hasOriginalPaths) {
+      for (const p of originalPaths!) {
+        // Type check
+        if (typeof p !== 'string') {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Path must be a string',
+            },
+          };
+        }
+        // Block null bytes (security risk)
+        if (p.includes('\0')) {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Invalid path - null bytes not allowed',
+            },
+          };
+        }
+        // Block path traversal
+        if (p.includes('..')) {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Invalid path - path traversal not allowed',
+              details: p,
+            },
+          };
+        }
+        // Must be absolute path
+        if (!path.isAbsolute(p)) {
+          return {
+            success: false,
+            error: {
+              code: ErrorCode.SECURE_DELETE_FAILED,
+              message: 'Invalid path - must be absolute',
+              details: p,
+            },
+          };
+        }
+      }
+    }
+
+    // Perform secure deletion
+    return secureDelete(tempPaths, originalPaths);
   });
 }

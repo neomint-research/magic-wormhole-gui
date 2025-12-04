@@ -10,6 +10,8 @@ import type {
   TransferCompleteEvent,
   TextPrepareResponse,
   TextReadResponse,
+  SecureDeleteRequest,
+  SecureDeleteResponse,
 } from '../shared/types';
 
 const api: WormholeAPI = {
@@ -68,6 +70,11 @@ const api: WormholeAPI = {
 
   readTextMessage: (filePath: string): Promise<Result<TextReadResponse>> => {
     return ipcRenderer.invoke('text:read', filePath);
+  },
+
+  // Secure delete support
+  secureDelete: (request: SecureDeleteRequest): Promise<Result<SecureDeleteResponse>> => {
+    return ipcRenderer.invoke('secure:delete', request);
   },
 };
 
