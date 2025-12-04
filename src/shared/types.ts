@@ -105,6 +105,21 @@ export interface TransferCompleteEvent {
   success: boolean;
 }
 
+// ============================================================
+// TEXT MESSAGE TYPES
+// ============================================================
+
+export type SendMode = 'idle' | 'file' | 'text';
+
+export interface TextPrepareResponse {
+  filePath: string;
+}
+
+export interface TextReadResponse {
+  wasTextMessage: boolean;
+  content?: string;
+}
+
 export interface DockerStatus {
   available: boolean;
   version?: string;
@@ -171,6 +186,9 @@ export interface WormholeAPI {
   getPathForFile: (file: File) => string;
   onProgress: (callback: (event: ProgressEvent) => void) => () => void;
   onTransferComplete: (callback: (event: TransferCompleteEvent) => void) => () => void;
+  // Text message support
+  prepareTextMessage: (text: string) => Promise<Result<TextPrepareResponse>>;
+  readTextMessage: (filePath: string) => Promise<Result<TextReadResponse>>;
 }
 
 declare global {

@@ -57,6 +57,7 @@ const MIN_PASSWORD_LENGTH = 4;
 const STATUS = {
   IDLE: 'idle',
   FILES_SELECTED: 'files-selected',
+  TEXT_SELECTED: 'text-selected',
   PACKAGING: 'packaging',
   SENDING: 'sending',
   CODE_ENTERED: 'code-entered',
@@ -66,6 +67,7 @@ const STATUS = {
   DECRYPT_PROMPT: 'decrypt-prompt',
   DECRYPTING: 'decrypting',
   DECRYPT_SUCCESS: 'decrypt-success',
+  TEXT_RECEIVED: 'text-received',
 } as const;
 
 type StatusType = typeof STATUS[keyof typeof STATUS];
@@ -106,6 +108,9 @@ interface ProgressData {
 }
 
 type TransferPhase = 'waiting' | 'transferring' | 'complete' | null;
+type SendMode = 'file' | 'text';
+
+const TEXT_MAX_LENGTH = 10000;
 
 interface SendState {
   status: StatusType;
@@ -115,6 +120,8 @@ interface SendState {
   showPassword: boolean;
   progress: ProgressData | null;
   transferPhase: TransferPhase;
+  sendMode: SendMode;
+  textMessage: string;
   code?: string;
   encrypted?: boolean;
   message?: string;
@@ -132,6 +139,7 @@ interface ReceiveState {
   showPassword?: boolean;
   extractedPath?: string;
   fileCount?: number;
+  textContent?: string;
   message?: string;
   details?: string;
 }
@@ -152,7 +160,7 @@ type StateListener = (state: AppState) => void;
 let state: AppState = {
   tab: 'send',
   docker: DOCKER.CHECKING,
-  send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null },
+  send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null, sendMode: 'file', textMessage: '' },
   receive: { status: STATUS.IDLE, progress: null },
 };
 
@@ -220,7 +228,23 @@ function removeFile(index: number): void {
 }
 
 function clearFiles(): void {
-  setSendState({ status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false });
+  setSendState({ status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, sendMode: 'file', textMessage: '' });
+}
+
+function setTextMessage(text: string): void {
+  const trimmed = text.slice(0, TEXT_MAX_LENGTH);
+  if (trimmed.length > 0) {
+    setSendState({ status: STATUS.TEXT_SELECTED, textMessage: trimmed, sendMode: 'text', items: [] });
+  } else {
+    setSendState({ status: STATUS.IDLE, textMessage: '', sendMode: 'file' });
+  }
+  requestAnimationFrame(() => {
+    const input = $('textInput') as HTMLTextAreaElement | null;
+    if (input) {
+      input.focus();
+      input.setSelectionRange(trimmed.length, trimmed.length);
+    }
+  });
 }
 
 function setEncrypt(encrypt: boolean): void {
@@ -282,17 +306,59 @@ function renderSend(): void {
 
 function getSendHTML(s: SendState): string {
   const buttonText = s.encrypt && s.password.length >= MIN_PASSWORD_LENGTH ? 'Encrypt & Send' : 'Send';
-  const buttonDisabled = s.status !== STATUS.FILES_SELECTED || !isPasswordValid();
+  const canSendFiles = s.status === STATUS.FILES_SELECTED && isPasswordValid();
+  const canSendText = s.status === STATUS.TEXT_SELECTED && s.textMessage.trim().length > 0 && isPasswordValid();
+  const buttonDisabled = !canSendFiles && !canSendText;
 
   switch (s.status) {
     case STATUS.IDLE:
       return `
-        <div class="dropzone dropzone-clickable" id="dropzone">
-          <div class="dropzone-icon">${ICONS.upload}</div>
-          <p class="dropzone-text">Drop files here to send</p>
-          <p class="dropzone-subtext">or <button class="link-btn" id="browseFilesBtn">browse files</button> / <button class="link-btn" id="browseFolderBtn">folder</button></p>
+        <div class="unified-input" id="dropzone">
+          <div class="unified-drop-area">
+            <div class="dropzone-icon">${ICONS.upload}</div>
+            <p class="dropzone-text">Drop files here to send</p>
+            <p class="dropzone-subtext">or <button class="link-btn" id="browseFilesBtn">browse files</button> / <button class="link-btn" id="browseFolderBtn">folder</button></p>
+          </div>
+          <div class="unified-divider"><span>or</span></div>
+          <textarea id="textInput" class="unified-text-input" placeholder="Type or paste a message..." rows="1">${escapeHtml(s.textMessage)}</textarea>
         </div>
         <button class="btn btn-primary" id="sendBtn" disabled>Send</button>`;
+
+    case STATUS.TEXT_SELECTED:
+      const charCount = s.textMessage.length;
+      return `
+        <div class="unified-input unified-text-mode">
+          <div class="unified-drop-area unified-drop-faded">
+            <div class="dropzone-icon">${ICONS.upload}</div>
+            <p class="dropzone-text">Drop files here to send</p>
+          </div>
+          <div class="unified-text-active">
+            <div class="unified-text-header">
+              <span class="unified-text-label">Message</span>
+              <span class="char-counter">${charCount.toLocaleString()} / ${TEXT_MAX_LENGTH.toLocaleString()}</span>
+            </div>
+            <textarea id="textInput" class="unified-text-input unified-text-expanded" placeholder="Type or paste a message...">${escapeHtml(s.textMessage)}</textarea>
+            <button class="clear-text-btn" id="clearTextBtn">Clear</button>
+          </div>
+        </div>
+        <div class="encrypt-row">
+          <label class="encrypt-toggle">
+            <input type="checkbox" id="encryptCheck" ${s.encrypt ? 'checked' : ''}>
+            <span class="encrypt-label">${ICONS.lock} Encrypt</span>
+          </label>
+          <div class="password-wrapper ${s.encrypt ? '' : 'hidden'}">
+            <input type="${s.showPassword ? 'text' : 'password'}" 
+                   class="encrypt-password" 
+                   id="encryptPassword" 
+                   placeholder="Password (min ${MIN_PASSWORD_LENGTH} chars)"
+                   value="${s.password}"
+                   autocomplete="off">
+            <button type="button" class="password-toggle" id="togglePassword" title="${s.showPassword ? 'Hide' : 'Show'} password">
+              ${s.showPassword ? ICONS.eyeOff : ICONS.eye}
+            </button>
+          </div>
+        </div>
+        <button class="btn btn-primary ${s.encrypt ? 'btn-encrypt' : ''}" id="sendBtn" ${buttonDisabled ? 'disabled' : ''}>${buttonText}</button>`;
 
     case STATUS.FILES_SELECTED:
       const items = s.items.map((item, i) => `
@@ -396,19 +462,48 @@ function getSendHTML(s: SendState): string {
 
 function attachSendListeners(s: SendState): void {
   const dropzone = $('dropzone');
-
+  
   if (dropzone) {
-    const clone = dropzone.cloneNode(true) as HTMLElement;
-    dropzone.parentNode?.replaceChild(clone, dropzone);
+    // Check if it's the unified input (IDLE/TEXT_SELECTED) or compact dropzone (FILES_SELECTED)
+    const dropArea = dropzone.querySelector('.unified-drop-area') as HTMLElement | null;
+    const isCompact = dropzone.classList.contains('dropzone-compact');
+    
+    if (dropArea) {
+      // Unified Input Zone - attach to inner drop area
+      dropArea.addEventListener('dragenter', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('unified-input-hover'); });
+      dropArea.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('unified-input-hover'); });
+      dropArea.addEventListener('dragleave', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('unified-input-hover'); });
+      dropArea.addEventListener('drop', handleDrop);
+      dropArea.addEventListener('click', (e: MouseEvent) => { 
+        if (!(e.target as HTMLElement).closest('.link-btn') && !(e.target as HTMLElement).closest('textarea')) {
+          browseFiles(); 
+        }
+      });
+      dropArea.querySelector('#browseFilesBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFiles(); });
+      dropArea.querySelector('#browseFolderBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFolder(); });
+    } else if (isCompact) {
+      // Compact Dropzone (FILES_SELECTED) - attach directly to dropzone
+      dropzone.addEventListener('dragenter', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dropzone-hover'); });
+      dropzone.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dropzone-hover'); });
+      dropzone.addEventListener('dragleave', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dropzone-hover'); });
+      dropzone.addEventListener('drop', handleDrop);
+      dropzone.addEventListener('click', (e: MouseEvent) => { 
+        if (!(e.target as HTMLElement).closest('.link-btn')) {
+          browseFiles(); 
+        }
+      });
+      dropzone.querySelector('#browseFilesBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFiles(); });
+      dropzone.querySelector('#browseFolderBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFolder(); });
+    }
+  }
 
-    clone.addEventListener('dragenter', function(this: HTMLElement, e: DragEvent) { e.preventDefault(); e.stopPropagation(); this.classList.add('dropzone-hover'); });
-    clone.addEventListener('dragover', function(this: HTMLElement, e: DragEvent) { e.preventDefault(); e.stopPropagation(); this.classList.add('dropzone-hover'); });
-    clone.addEventListener('dragleave', function(this: HTMLElement, e: DragEvent) { e.preventDefault(); e.stopPropagation(); this.classList.remove('dropzone-hover'); });
-    clone.addEventListener('drop', handleDrop);
-    clone.addEventListener('click', (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('.link-btn')) browseFiles(); });
-
-    clone.querySelector('#browseFilesBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFiles(); });
-    clone.querySelector('#browseFolderBtn')?.addEventListener('click', (e: Event) => { e.stopPropagation(); browseFolder(); });
+  // File list also accepts drops (FILES_SELECTED state)
+  const fileListContainer = document.querySelector('.file-list-container') as HTMLElement | null;
+  if (fileListContainer) {
+    fileListContainer.addEventListener('dragenter', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); fileListContainer.classList.add('file-list-drop-hover'); });
+    fileListContainer.addEventListener('dragover', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); fileListContainer.classList.add('file-list-drop-hover'); });
+    fileListContainer.addEventListener('dragleave', (e: DragEvent) => { e.preventDefault(); e.stopPropagation(); fileListContainer.classList.remove('file-list-drop-hover'); });
+    fileListContainer.addEventListener('drop', handleFileListDrop);
   }
 
   $('sendBtn')?.addEventListener('click', handleSend);
@@ -430,6 +525,20 @@ function attachSendListeners(s: SendState): void {
     if (btn) removeFile(parseInt(btn.dataset.index || '0', 10));
   });
 
+  // Text input listeners
+  const textInput = $('textInput') as HTMLTextAreaElement | null;
+  if (textInput) {
+    textInput.addEventListener('input', () => {
+      setTextMessage(textInput.value);
+    });
+    // Auto-expand textarea
+    textInput.addEventListener('input', () => {
+      textInput.style.height = 'auto';
+      textInput.style.height = Math.min(textInput.scrollHeight, 160) + 'px';
+    });
+  }
+  $('clearTextBtn')?.addEventListener('click', clearFiles);
+
   const copyBtn = $('copyBtn');
   const codeDisplay = $('codeDisplay');
   if (copyBtn && codeDisplay) {
@@ -447,7 +556,28 @@ function attachSendListeners(s: SendState): void {
 function handleDrop(this: HTMLElement, e: DragEvent): void {
   e.preventDefault();
   e.stopPropagation();
-  this.classList.remove('dropzone-hover');
+  const dropzone = $('dropzone');
+  dropzone?.classList.remove('unified-input-hover');
+  dropzone?.classList.remove('dropzone-hover');
+
+  // Block drops if in text mode
+  if (state.send.sendMode === 'text') return;
+
+  const files = e.dataTransfer?.files;
+  if (!files?.length) return;
+
+  const paths: string[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const path = window.wormhole.getPathForFile(files[i]);
+    if (path) paths.push(path);
+  }
+  if (paths.length) addFiles(paths);
+}
+
+function handleFileListDrop(this: HTMLElement, e: DragEvent): void {
+  e.preventDefault();
+  e.stopPropagation();
+  this.classList.remove('file-list-drop-hover');
 
   const files = e.dataTransfer?.files;
   if (!files?.length) return;
@@ -479,16 +609,39 @@ async function browseFolder(): Promise<void> {
 }
 
 async function handleSend(): Promise<void> {
-  const { items, encrypt, password } = state.send;
-  if (!items.length) return;
+  const { items, encrypt, password, sendMode, textMessage } = state.send;
+  
+  // Validate based on mode
+  if (sendMode === 'text') {
+    if (!textMessage.trim()) return;
+  } else {
+    if (!items.length) return;
+  }
   if (encrypt && password.length < MIN_PASSWORD_LENGTH) return;
 
   try {
     setSendState({ status: STATUS.PACKAGING });
     await new Promise(r => setTimeout(r, 100));
 
+    let paths: string[];
+    
+    if (sendMode === 'text') {
+      // Prepare text message as temp file
+      const prepareResult = await window.wormhole.prepareTextMessage(textMessage);
+      if (!prepareResult.success) {
+        setSendState({
+          status: STATUS.ERROR,
+          message: prepareResult.error.message,
+          details: prepareResult.error.details,
+        });
+        return;
+      }
+      paths = [prepareResult.data.filePath];
+    } else {
+      paths = items.map(i => i.path);
+    }
+
     setSendState({ status: STATUS.SENDING });
-    const paths = items.map(i => i.path);
     const result = await window.wormhole.send(paths, encrypt ? password : undefined);
 
     if (result.success) {
@@ -500,6 +653,8 @@ async function handleSend(): Promise<void> {
         items: [],
         encrypt: false,
         password: '',
+        sendMode: 'file',
+        textMessage: '',
       });
     } else {
       setSendState({
@@ -606,6 +761,19 @@ function getReceiveHTML(s: ReceiveState): string {
         </div>
         <button class="btn btn-primary" id="resetReceiveBtn">Receive more</button>`;
 
+    case STATUS.TEXT_RECEIVED:
+      return `
+        <div class="success-box">
+          <div class="success-icon">${ICONS.check}</div>
+          <p class="success-label">Message received</p>
+          <div class="text-message-display">
+            <pre class="text-message-content" id="textMessageContent">${escapeHtml(s.textContent || '')}</pre>
+          </div>
+          <button class="btn btn-ghost" id="copyTextBtn">${ICONS.copy}<span>Copy message</span></button>
+          <p class="text-message-notice">This message will not be saved</p>
+        </div>
+        <button class="btn btn-primary" id="resetReceiveBtn">Receive more</button>`;
+
     case STATUS.ERROR:
       return `
         <div class="error-box">
@@ -654,6 +822,20 @@ function attachReceiveListeners(s: ReceiveState): void {
   });
   $('resetReceiveBtn')?.addEventListener('click', () => setReceiveState({ status: STATUS.IDLE }));
 
+  // Text message copy listener
+  const copyTextBtn = $('copyTextBtn');
+  const textContent = $('textMessageContent');
+  if (copyTextBtn && textContent) {
+    copyTextBtn.addEventListener('click', () => {
+      window.wormhole.copyToClipboard(textContent.textContent || '');
+      const span = copyTextBtn.querySelector('span');
+      if (span) {
+        span.textContent = 'Copied!';
+        setTimeout(() => { span.textContent = 'Copy message'; }, 2000);
+      }
+    });
+  }
+
   // Decrypt prompt listeners
   $('decryptPassword')?.addEventListener('input', (e: Event) => {
     setReceivePassword((e.target as HTMLInputElement).value);
@@ -677,7 +859,14 @@ async function handleReceive(): Promise<void> {
     const result = await window.wormhole.receive(code);
 
     if (result.success) {
-      if (result.data.isEncrypted) {
+      // Check if this is a text message
+      const textResult = await window.wormhole.readTextMessage(result.data.savedPath);
+      if (textResult.success && textResult.data.wasTextMessage && textResult.data.content) {
+        setReceiveState({
+          status: STATUS.TEXT_RECEIVED,
+          textContent: textResult.data.content,
+        });
+      } else if (result.data.isEncrypted) {
         setReceiveState({
           status: STATUS.DECRYPT_PROMPT,
           filename: result.data.filename,
@@ -717,11 +906,22 @@ async function handleDecrypt(): Promise<void> {
     const result = await window.wormhole.decrypt(path, password, outputDir);
 
     if (result.success) {
-      setReceiveState({
-        status: STATUS.DECRYPT_SUCCESS,
-        extractedPath: result.data.extractedPath,
-        fileCount: result.data.fileCount,
-      });
+      // Check if this was an encrypted text message
+      const textFilePath = outputDir + (outputDir.includes('/') ? '/' : '\\') + 'wormhole-message.txt';
+      const textResult = await window.wormhole.readTextMessage(textFilePath);
+      
+      if (textResult.success && textResult.data.wasTextMessage && textResult.data.content) {
+        setReceiveState({
+          status: STATUS.TEXT_RECEIVED,
+          textContent: textResult.data.content,
+        });
+      } else {
+        setReceiveState({
+          status: STATUS.DECRYPT_SUCCESS,
+          extractedPath: result.data.extractedPath,
+          fileCount: result.data.fileCount,
+        });
+      }
     } else {
       setReceiveState({
         status: STATUS.ERROR,

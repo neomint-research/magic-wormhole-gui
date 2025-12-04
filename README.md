@@ -17,7 +17,8 @@ Optional AES-256 encryption adds a user-controlled encryption layer on top of th
 ## Features
 
 - Drag and drop files and folders
-- Optional AES-256 password encryption
+- Send text messages (credentials, code snippets, notes)
+- Optional AES-256 password encryption (files and messages)
 - Cross-platform (Windows, macOS, Linux)
 - Portable mode (run from USB, no installation)
 - Smart installer (detects existing installation, offers upgrade/uninstall)
@@ -38,11 +39,13 @@ docker build -t wormhole-cli ./docker
 
 ## Usage
 
-**Send:** Drop files, optionally enable encryption, click Send, share the code.
+**Send Files:** Drop files or browse, optionally enable encryption, click Send, share the code.
 
-**Receive:** Enter code, click Receive, decrypt if prompted.
+**Send Message:** Type or paste text in the input field, optionally enable encryption, click Send, share the code.
 
-Encrypted archives use 7-Zip AES-256 format. Recipients can extract with any compatible tool using the shared password.
+**Receive:** Enter code, click Receive. Files are saved to your documents folder. Messages are displayed directly (not saved to disk for privacy).
+
+Encrypted transfers use 7-Zip AES-256 format. Recipients can extract with any compatible tool using the shared password.
 
 ## Development
 

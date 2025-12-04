@@ -8,6 +8,8 @@ import type {
   DockerStatus,
   ProgressEvent,
   TransferCompleteEvent,
+  TextPrepareResponse,
+  TextReadResponse,
 } from '../shared/types';
 
 const api: WormholeAPI = {
@@ -57,6 +59,15 @@ const api: WormholeAPI = {
     const handler = (_event: Electron.IpcRendererEvent, data: TransferCompleteEvent) => callback(data);
     ipcRenderer.on('wormhole:transfer-complete', handler);
     return () => ipcRenderer.removeListener('wormhole:transfer-complete', handler);
+  },
+
+  // Text message support
+  prepareTextMessage: (text: string): Promise<Result<TextPrepareResponse>> => {
+    return ipcRenderer.invoke('text:prepare', text);
+  },
+
+  readTextMessage: (filePath: string): Promise<Result<TextReadResponse>> => {
+    return ipcRenderer.invoke('text:read', filePath);
   },
 };
 

@@ -1,7 +1,9 @@
-import { ipcMain, dialog, shell, clipboard, BrowserWindow } from 'electron';
+import { ipcMain, dialog, shell, clipboard, BrowserWindow, app } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { checkDocker } from '../services/docker';
 import { send, receive, decrypt } from '../services/wormhole';
-import { cleanupTempDir } from '../utils/paths';
+import { cleanupTempDir, getTempDir } from '../utils/paths';
 import {
   validateSendPaths,
   validateDecryptOutputDir,
@@ -10,7 +12,8 @@ import {
   validatePassword,
   validateCode,
 } from '../utils/validation';
-import { ErrorCode, ProgressEvent } from '../../shared/types';
+import { ErrorCode, ProgressEvent, TextPrepareResponse, TextReadResponse, Result } from '../../shared/types';
+import { TEXT_MESSAGE_FILENAME, TEXT_MAX_LENGTH } from '../../shared/constants';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -159,4 +162,85 @@ export function registerIpcHandlers(): void {
 
   // Cleanup temp files on startup
   cleanupTempDir();
+
+  // ============================================================
+  // TEXT MESSAGE HANDLERS
+  // ============================================================
+
+  // Prepare text message: write to temp file for sending
+  ipcMain.handle('text:prepare', async (_event, text: string): Promise<Result<TextPrepareResponse>> => {
+    // Validate input
+    if (typeof text !== 'string') {
+      return {
+        success: false,
+        error: { code: ErrorCode.EMPTY_PATHS, message: 'Invalid text input' },
+      };
+    }
+
+    const trimmedText = text.trim();
+    if (trimmedText.length === 0) {
+      return {
+        success: false,
+        error: { code: ErrorCode.EMPTY_PATHS, message: 'Text message cannot be empty' },
+      };
+    }
+
+    if (trimmedText.length > TEXT_MAX_LENGTH) {
+      return {
+        success: false,
+        error: { code: ErrorCode.ARCHIVE_TOO_LARGE, message: `Text exceeds maximum length of ${TEXT_MAX_LENGTH} characters` },
+      };
+    }
+
+    try {
+      const tempDir = getTempDir();
+      const filePath = path.join(tempDir, TEXT_MESSAGE_FILENAME);
+      fs.writeFileSync(filePath, trimmedText, 'utf-8');
+      return { success: true, data: { filePath } };
+    } catch (err) {
+      return {
+        success: false,
+        error: { code: ErrorCode.TEMP_DIR_FAILED, message: 'Failed to prepare text message' },
+      };
+    }
+  });
+
+  // Read text message: check if received file is a text message
+  ipcMain.handle('text:read', async (_event, filePath: string): Promise<Result<TextReadResponse>> => {
+    try {
+      // Validate path exists
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: true, data: { wasTextMessage: false } };
+      }
+
+      const fileName = path.basename(filePath);
+
+      // Check if it's a text message by filename convention
+      if (fileName !== TEXT_MESSAGE_FILENAME) {
+        return { success: true, data: { wasTextMessage: false } };
+      }
+
+      // Verify file exists
+      if (!fs.existsSync(filePath)) {
+        return { success: true, data: { wasTextMessage: false } };
+      }
+
+      // Read content
+      const content = fs.readFileSync(filePath, 'utf-8');
+
+      // Delete file (no persistence for text messages)
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        // Ignore deletion errors
+      }
+
+      return { success: true, data: { wasTextMessage: true, content } };
+    } catch (err) {
+      return {
+        success: false,
+        error: { code: ErrorCode.PATH_NOT_READABLE, message: 'Failed to read text message' },
+      };
+    }
+  });
 }

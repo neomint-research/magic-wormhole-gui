@@ -25,6 +25,13 @@ export const MAX_ARCHIVE_SIZE_BYTES = 50 * 1024 * 1024 * 1024; // 50 GB
 export const CLEANUP_MAX_AGE_MS = 60 * 60 * 1000; // 1 hour
 
 // ============================================================
+// TEXT MESSAGE
+// ============================================================
+
+export const TEXT_MESSAGE_FILENAME = 'wormhole-message.txt';
+export const TEXT_MAX_LENGTH = 10_000;
+
+// ============================================================
 // PATTERNS
 // ============================================================
 
