@@ -43,7 +43,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          # For workflow_dispatch: checkout main (has latest fixes)
+          # For tag push: checkout the tag ref
+          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
