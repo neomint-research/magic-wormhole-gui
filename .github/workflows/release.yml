@@ -90,9 +90,7 @@ jobs:
         run: npm run build
 
       - name: Build Electron distribution
-        run: npx electron-builder ${{ matrix.electron_args }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder ${{ matrix.electron_args }} --publish never
 
       - name: List dist directory
         run: ls -la dist/
