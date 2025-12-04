@@ -9,6 +9,13 @@ dist/
 out/
 *.tsbuildinfo
 
+# Native addon build artifacts
+native/target/
+native/*.node
+native/index.js
+native/index.d.ts
+*.node
+
 # Compiled TypeScript in source (should only exist in build/)
 src/**/*.js
 src/**/*.js.map

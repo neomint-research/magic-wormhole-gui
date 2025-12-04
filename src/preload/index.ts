@@ -5,7 +5,6 @@ import type {
   SendResponse,
   ReceiveResponse,
   DecryptResponse,
-  DockerStatus,
   ProgressEvent,
   TransferCompleteEvent,
   TextPrepareResponse,
@@ -25,10 +24,6 @@ const api: WormholeAPI = {
 
   decrypt: (archivePath: string, password: string, outputDir: string): Promise<Result<DecryptResponse>> => {
     return ipcRenderer.invoke('wormhole:decrypt', archivePath, password, outputDir);
-  },
-
-  checkDocker: (): Promise<Result<DockerStatus>> => {
-    return ipcRenderer.invoke('docker:check');
   },
 
   getFilePaths: (): Promise<string[] | null> => {

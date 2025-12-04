@@ -1,8 +1,8 @@
 import { ipcMain, dialog, shell, clipboard, BrowserWindow, app } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { checkDocker } from '../services/docker';
-import { send, receive, decrypt } from '../services/wormhole';
+import { send, receive, cancelTransfer } from '../services/native-wormhole';
+import { decrypt } from '../services/wormhole';
 import { getTempDir } from '../utils/paths';
 import { secureDelete } from '../utils/secure-delete';
 import {
@@ -39,11 +39,6 @@ function emitTransferComplete(type: 'send' | 'receive', success: boolean): void 
  * Call this once before creating the BrowserWindow.
  */
 export function registerIpcHandlers(): void {
-  // Docker check
-  ipcMain.handle('docker:check', async () => {
-    return checkDocker();
-  });
-
   // Send files (with optional encryption)
   ipcMain.handle('wormhole:send', async (_event, paths: string[], password?: string) => {
     // Validate paths

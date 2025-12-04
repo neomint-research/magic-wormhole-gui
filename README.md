@@ -16,6 +16,7 @@ Optional AES-256 encryption adds a user-controlled encryption layer on top of th
 
 ## Features
 
+- Native Magic Wormhole integration (no Docker required)
 - Drag and drop files and folders
 - Send text messages (credentials, code snippets, notes)
 - Optional AES-256 password encryption (files and messages)
@@ -26,6 +27,12 @@ Optional AES-256 encryption adds a user-controlled encryption layer on top of th
 - Dark/Light theme
 
 ## Changelog
+
+### 3.0.0
+- **Native Wormhole**: Replaced Docker-based implementation with native Rust integration via [magic-wormhole.rs](https://github.com/magic-wormhole/magic-wormhole.rs)
+- **No Docker Required**: Application now runs standalone without any external dependencies
+- **Improved Performance**: Native binary eliminates container startup overhead
+- **Better Progress**: Native progress callbacks instead of stdout parsing
 
 ### 2.2.0
 - **Secure Delete**: Optional 3-pass overwrite (random, random, zeros) for temp files after transfer
@@ -45,14 +52,7 @@ Optional AES-256 encryption adds a user-controlled encryption layer on top of th
 
 ## Quick Start
 
-**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) running.
-
-```bash
-# Build the wormhole container (once)
-docker build -t wormhole-cli ./docker
-
-# Download release for your platform and run
-```
+Download the release for your platform and run - no additional setup required.
 
 **Windows:** `Wormhole-Desktop-Setup-x.x.x.exe` (installer) or `Wormhole-Desktop-x.x.x-win.zip` (portable)
 
@@ -69,12 +69,16 @@ Encrypted transfers use 7-Zip AES-256 format. Recipients can extract with any co
 ## Development
 
 ```bash
-# Requirements: Node.js 18+, Docker 20.10+
+# Requirements: Node.js 20+, Rust toolchain (rustup)
 
 git clone https://github.com/user/wormhole-desktop.git
 cd wormhole-desktop
 npm install
-npm run build:docker
+
+# Build native module (once, or after Rust changes)
+npm run build:native
+
+# Run in development mode
 npm run dev
 ```
 
@@ -128,11 +132,11 @@ src/
 ├── preload/    # Context bridge API
 ├── renderer/   # UI (TypeScript/CSS)
 └── shared/     # Types, constants
+native/         # Rust native module (magic-wormhole bindings)
 ```
 
 ## Limitations
 
-- Requires Docker Desktop running
 - Single transfer at a time
 - 50 GB archive size limit
 
@@ -140,7 +144,7 @@ src/
 
 MIT © SKR
 
-This project wraps [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole) by Brian Warner (MIT License).
+This project uses [magic-wormhole.rs](https://github.com/magic-wormhole/magic-wormhole.rs) (Apache-2.0/MIT) and wraps the [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole) protocol by Brian Warner.
 
 ---
 

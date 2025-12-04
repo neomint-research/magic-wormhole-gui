@@ -73,14 +73,6 @@ const STATUS = {
 
 type StatusType = typeof STATUS[keyof typeof STATUS];
 
-const DOCKER = {
-  CHECKING: 'checking',
-  AVAILABLE: 'available',
-  UNAVAILABLE: 'unavailable',
-} as const;
-
-type DockerType = typeof DOCKER[keyof typeof DOCKER];
-
 const ICONS = {
   upload: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
   download: '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
@@ -154,7 +146,6 @@ interface ReceiveState {
 
 interface AppState {
   tab: 'send' | 'receive';
-  docker: DockerType;
   send: SendState;
   receive: ReceiveState;
 }
@@ -167,7 +158,6 @@ type StateListener = (state: AppState) => void;
 
 let state: AppState = {
   tab: 'send',
-  docker: DOCKER.CHECKING,
   send: { status: STATUS.IDLE, items: [], encrypt: false, password: '', showPassword: false, progress: null, transferPhase: null, sendMode: 'file', textMessage: '', secureDeleteTemp: false, secureDeleteOriginal: false, pendingDeletePaths: [], pendingTempPaths: [] },
   receive: { status: STATUS.IDLE, progress: null },
 };
@@ -1149,38 +1139,16 @@ function handleStateChange(): void {
   const tabReceive = $('tabReceive');
   const contentSend = $('contentSend');
   const contentReceive = $('contentReceive');
-  const dockerOverlay = $('dockerOverlay');
 
   tabSend?.classList.toggle('active', state.tab === 'send');
   tabReceive?.classList.toggle('active', state.tab === 'receive');
   contentSend?.classList.toggle('hidden', state.tab !== 'send');
   contentReceive?.classList.toggle('hidden', state.tab !== 'receive');
 
-  if (dockerOverlay) {
-    dockerOverlay.classList.toggle('hidden', state.docker === DOCKER.AVAILABLE);
-    if (state.docker === DOCKER.CHECKING) {
-      dockerOverlay.innerHTML = '<div class="spinner"></div><p>Checking Docker...</p>';
-    } else if (state.docker === DOCKER.UNAVAILABLE) {
-      dockerOverlay.innerHTML = '<p class="error-message">Docker is not available</p><button class="btn btn-primary" id="retryDockerBtn">Retry</button>';
-      $('retryDockerBtn')?.addEventListener('click', checkDocker);
-    }
-  }
-
   state.tab === 'send' ? renderSend() : renderReceive();
 }
 
-async function checkDocker(): Promise<void> {
-  setState({ docker: DOCKER.CHECKING });
-  try {
-    const result = await window.wormhole.checkDocker();
-    setState({ docker: result.success && result.data.available ? DOCKER.AVAILABLE : DOCKER.UNAVAILABLE });
-  } catch (err) {
-    console.error('Docker check failed:', err);
-    setState({ docker: DOCKER.UNAVAILABLE });
-  }
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   sendContainer = $('contentSend');
   receiveContainer = $('contentReceive');
 
@@ -1212,6 +1180,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   subscribe(handleStateChange);
   handleStateChange();
-
-  await checkDocker();
 });

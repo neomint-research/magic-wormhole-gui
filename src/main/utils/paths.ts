@@ -1,5 +1,4 @@
 import * as path from 'path';
-import * as os from 'os';
 import * as fs from 'fs';
 import { app } from 'electron';
 import { TEMP_SUBDIR, RECEIVE_SUBDIR, ARCHIVE_PREFIX, CLEANUP_MAX_AGE_MS } from '../../shared/constants';
@@ -28,25 +27,6 @@ function getDataDir(): string {
     return getPortableDataDir();
   }
   return app.getPath('userData');
-}
-
-/**
- * Converts Windows path to Docker-compatible path.
- * C:\\Users\\Name\\file.txt -> /c/Users/Name/file.txt
- */
-export function toDockerPath(windowsPath: string): string {
-  if (os.platform() !== 'win32') {
-    return windowsPath;
-  }
-  
-  const normalized = windowsPath.replace(/\\/g, '/');
-  const match = normalized.match(/^([a-zA-Z]):(.*)/);
-  
-  if (match) {
-    return `/${match[1].toLowerCase()}${match[2]}`;
-  }
-  
-  return normalized;
 }
 
 /**
@@ -118,27 +98,4 @@ export function cleanupTempDir(): void {
   } catch (err) {
     console.warn('Temp cleanup failed:', err instanceof Error ? err.message : 'Unknown error');
   }
-}
-
-/**
- * Gets the first file in a directory (for receive result).
- * Waits briefly for filesystem sync before reading.
- */
-export function getFirstFileInDir(dir: string): string | null {
-  try {
-    const files = fs.readdirSync(dir);
-    
-    for (const file of files) {
-      const filePath = path.join(dir, file);
-      const stats = fs.statSync(filePath);
-      
-      if (stats.isFile()) {
-        return filePath;
-      }
-    }
-  } catch (err) {
-    console.warn('Failed to read directory:', err instanceof Error ? err.message : 'Unknown error');
-  }
-  
-  return null;
 }

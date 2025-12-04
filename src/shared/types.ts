@@ -3,13 +3,6 @@
 // ============================================================
 
 export enum ErrorCode {
-  // Docker errors
-  DOCKER_NOT_INSTALLED = 'E_DOCKER_NOT_INSTALLED',
-  DOCKER_NOT_RUNNING = 'E_DOCKER_NOT_RUNNING',
-  DOCKER_IMAGE_MISSING = 'E_DOCKER_IMAGE_MISSING',
-  DOCKER_TIMEOUT = 'E_DOCKER_TIMEOUT',
-  DOCKER_EXIT_NONZERO = 'E_DOCKER_EXIT_NONZERO',
-
   // Filesystem errors
   PATH_NOT_FOUND = 'E_PATH_NOT_FOUND',
   PATH_NOT_READABLE = 'E_PATH_NOT_READABLE',
@@ -17,10 +10,8 @@ export enum ErrorCode {
   TEMP_DIR_FAILED = 'E_TEMP_DIR_FAILED',
   RECEIVE_DIR_FAILED = 'E_RECEIVE_DIR_FAILED',
 
-  // Wormhole errors
-  CODE_PARSE_FAILED = 'E_CODE_PARSE_FAILED',
+  // Transfer errors
   TRANSFER_FAILED = 'E_TRANSFER_FAILED',
-  CODE_INVALID = 'E_CODE_INVALID',
 
   // Validation errors
   EMPTY_PATHS = 'E_EMPTY_PATHS',
@@ -135,11 +126,6 @@ export interface TextReadResponse {
   content?: string;
 }
 
-export interface DockerStatus {
-  available: boolean;
-  version?: string;
-}
-
 // ============================================================
 // PROCESS TYPES
 // ============================================================
@@ -159,7 +145,6 @@ export interface WormholeAPI {
   send: (paths: string[], password?: string) => Promise<Result<SendResponse>>;
   receive: (code: string) => Promise<Result<ReceiveResponse>>;
   decrypt: (archivePath: string, password: string, outputDir: string) => Promise<Result<DecryptResponse>>;
-  checkDocker: () => Promise<Result<DockerStatus>>;
   getFilePaths: () => Promise<string[] | null>;
   getFolderPath: () => Promise<string[] | null>;
   openFolder: (path: string) => Promise<void>;
