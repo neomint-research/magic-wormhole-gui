@@ -23,15 +23,19 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: win
-          - os: macos-latest
+            electron_args: '--win'
+          - os: macos-13
             target: x86_64-apple-darwin
             artifact: mac-x64
+            electron_args: '--mac --x64'
           - os: macos-latest
             target: aarch64-apple-darwin
             artifact: mac-arm64
+            electron_args: '--mac --arm64'
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: linux
+            electron_args: '--linux'
 
     runs-on: ${{ matrix.os }}
 
@@ -77,21 +81,8 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Build Electron (Windows)
-        if: matrix.os == 'windows-latest'
-        run: npm run dist:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Electron (macOS)
-        if: matrix.os == 'macos-latest'
-        run: npm run dist:mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Electron (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run dist:linux
+      - name: Build Electron distribution
+        run: npx electron-builder ${{ matrix.electron_args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
