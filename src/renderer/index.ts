@@ -10,6 +10,7 @@ import type {
   ProgressEvent,
   TransferCompleteEvent,
 } from '../shared/types';
+import { TEXT_MAX_LENGTH } from '../shared/constants';
 
 // Extend Window interface for wormhole API
 declare global {
@@ -111,8 +112,6 @@ interface ProgressData {
 
 type TransferPhase = 'waiting' | 'transferring' | 'complete' | null;
 type SendMode = 'file' | 'text';
-
-const TEXT_MAX_LENGTH = 10000;
 
 interface SendState {
   status: StatusType;

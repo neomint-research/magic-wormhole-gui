@@ -18,7 +18,7 @@ import {
   FILESYSTEM_SYNC_DELAY_MS,
 } from '../../shared/constants';
 import { toDockerPath, createReceiveSubdir, getFirstFileInDir } from '../utils/paths';
-import { runDockerCommand, runDockerSend, runDockerCommandWithProgress } from './docker';
+import { runDockerSend, runDockerCommandWithProgress } from './docker';
 import {
   createArchive,
   createEncryptedArchive,

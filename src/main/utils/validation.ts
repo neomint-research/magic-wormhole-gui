@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { getReceiveDir } from './paths';
+import { CODE_VALIDATION_REGEX } from '../../shared/constants';
 
 /**
  * Validates paths for send operations.
@@ -118,10 +119,16 @@ export function validatePassword(password: unknown): string | null {
 
 /**
  * Validates wormhole code format.
+ * Expected format: number-word-word (e.g., 7-guitar-sierra)
  */
 export function validateCode(code: unknown): string | null {
   if (typeof code !== 'string' || !code.trim()) {
     return 'Invalid code';
+  }
+
+  const trimmed = code.trim();
+  if (!CODE_VALIDATION_REGEX.test(trimmed)) {
+    return 'Invalid code format. Expected: number-word-word';
   }
 
   return null;

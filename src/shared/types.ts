@@ -126,8 +126,6 @@ export interface SecureDeleteResponse {
 // TEXT MESSAGE TYPES
 // ============================================================
 
-export type SendMode = 'idle' | 'file' | 'text';
-
 export interface TextPrepareResponse {
   filePath: string;
 }
@@ -151,40 +149,6 @@ export interface ProcessResult {
   stdout: string;
   stderr: string;
   timedOut: boolean;
-}
-
-// ============================================================
-// UI STATE TYPES
-// ============================================================
-
-export type Tab = 'send' | 'receive';
-
-export type DockerState = 'checking' | 'available' | 'unavailable';
-
-export type SendState =
-  | { status: 'idle' }
-  | { status: 'files-selected'; paths: string[]; names: string[] }
-  | { status: 'password-prompt'; paths: string[]; names: string[] }
-  | { status: 'packaging' }
-  | { status: 'sending' }
-  | { status: 'success'; code: string; encrypted: boolean }
-  | { status: 'error'; message: string; details?: string };
-
-export type ReceiveState =
-  | { status: 'idle' }
-  | { status: 'code-entered'; code: string }
-  | { status: 'receiving' }
-  | { status: 'success'; filename: string; path: string; isEncrypted: boolean }
-  | { status: 'decrypt-prompt'; filename: string; path: string }
-  | { status: 'decrypting' }
-  | { status: 'decrypt-success'; extractedPath: string; fileCount: number }
-  | { status: 'error'; message: string; details?: string };
-
-export interface AppState {
-  tab: Tab;
-  docker: DockerState;
-  send: SendState;
-  receive: ReceiveState;
 }
 
 // ============================================================

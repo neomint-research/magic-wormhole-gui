@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { checkDocker } from '../services/docker';
 import { send, receive, decrypt } from '../services/wormhole';
-import { cleanupTempDir, getTempDir } from '../utils/paths';
+import { getTempDir } from '../utils/paths';
 import { secureDelete } from '../utils/secure-delete';
 import {
   validateSendPaths,
@@ -160,9 +160,6 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('clipboard:write', async (_event, text: string) => {
     clipboard.writeText(text);
   });
-
-  // Cleanup temp files on startup
-  cleanupTempDir();
 
   // ============================================================
   // TEXT MESSAGE HANDLERS

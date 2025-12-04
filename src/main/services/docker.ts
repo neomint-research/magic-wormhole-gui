@@ -74,62 +74,6 @@ export async function checkDocker(): Promise<Result<DockerStatus>> {
 }
 
 /**
- * Runs a docker command with the wormhole-cli image.
- * Waits for process to complete.
- */
-export async function runDockerCommand(
-  args: string[],
-  volumeMount: { hostPath: string; containerPath: string; readOnly?: boolean },
-  timeoutMs: number
-): Promise<Result<{ stdout: string; stderr: string }>> {
-  const volumeArg = volumeMount.readOnly
-    ? `${volumeMount.hostPath}:${volumeMount.containerPath}:ro`
-    : `${volumeMount.hostPath}:${volumeMount.containerPath}`;
-
-  const dockerArgs = [
-    'run',
-    '--rm',
-    '-t',
-    '-e', 'PYTHONUNBUFFERED=1',
-    '-v',
-    volumeArg,
-    DOCKER_IMAGE,
-    ...args,
-  ];
-
-  const result = await spawnWithTimeout('docker', dockerArgs, timeoutMs);
-
-  if (result.timedOut) {
-    return {
-      success: false,
-      error: {
-        code: ErrorCode.DOCKER_TIMEOUT,
-        message: ERROR_MESSAGES[ErrorCode.DOCKER_TIMEOUT],
-      },
-    };
-  }
-
-  if (result.exitCode !== 0) {
-    return {
-      success: false,
-      error: {
-        code: ErrorCode.DOCKER_EXIT_NONZERO,
-        message: ERROR_MESSAGES[ErrorCode.DOCKER_EXIT_NONZERO],
-        details: result.stderr || result.stdout,
-      },
-    };
-  }
-
-  return {
-    success: true,
-    data: {
-      stdout: result.stdout,
-      stderr: result.stderr,
-    },
-  };
-}
-
-/**
  * Runs wormhole send and returns the code as soon as it's available.
  * The process continues running in the background until transfer completes.
  * Optional onProgress callback receives progress updates during transfer.

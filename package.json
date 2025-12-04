@@ -1,6 +1,6 @@
 {
   "name": "wormhole-desktop",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Secure peer-to-peer file transfers with optional AES-256 encryption",
   "author": "SKR",
   "license": "MIT",
