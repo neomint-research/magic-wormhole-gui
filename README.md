@@ -90,7 +90,6 @@ native/         # Rust bindings to magic-wormhole
 
 - Single transfer at a time
 - 50 GB archive size limit
-- macOS and Linux builds require platform-specific compilation
 
 ## Changelog
 
