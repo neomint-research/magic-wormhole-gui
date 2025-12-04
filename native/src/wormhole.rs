@@ -29,11 +29,6 @@ enum SessionState {
         mailbox: MailboxConnection<AppVersion>,
         relay_hints: Vec<RelayHint>,
     },
-    /// Connected wormhole, ready for transfer
-    Connected {
-        wormhole: Wormhole,
-        relay_hints: Vec<RelayHint>,
-    },
     /// Receiving: have a receive request, waiting for accept/reject
     Receiving {
         request: ReceiveRequestV1,
@@ -110,9 +105,6 @@ impl WormholeClient {
                     mailbox,
                     relay_hints,
                 } => (mailbox, relay_hints),
-                SessionState::Connected { .. } => {
-                    return Err(WormholeError::NoActiveSession.into());
-                }
                 _ => return Err(WormholeError::NoActiveSession.into()),
             }
         };
