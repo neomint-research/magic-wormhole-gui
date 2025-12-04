@@ -43,9 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # For workflow_dispatch: checkout main (has latest fixes)
-          # For tag push: checkout the tag ref
-          ref: ${{ github.event_name == 'workflow_dispatch' && 'main' || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -62,23 +60,31 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             native/target
           key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('native/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-${{ matrix.target }}-
+            ${{ runner.os }}-cargo-
 
       - name: Install dependencies
-        run: npm install
-
-      - name: Install native dependencies
-        working-directory: native
-        run: npm install
+        run: npm ci
 
       - name: Build native addon
-        working-directory: native
-        run: npx napi build --release --target ${{ matrix.target }}
+        run: npm run build:native
+        env:
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
+
+      - name: Verify native addon
+        run: |
+          if [ ! -f "native/wormhole-native.node" ]; then
+            echo "Error: Native addon not found!"
+            ls -la native/
+            exit 1
+          fi
+        shell: bash
 
       - name: Build TypeScript
         run: npm run build
@@ -87,6 +93,10 @@ jobs:
         run: npx electron-builder ${{ matrix.electron_args }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List dist directory
+        run: ls -la dist/
+        shell: bash
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -98,6 +108,8 @@ jobs:
             dist/*.dmg
             dist/*.AppImage
             dist/*.deb
+            dist/*.yml
+            dist/*.blockmap
           if-no-files-found: error
 
   release:
@@ -110,8 +122,13 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
-          merge-multiple: true
+          path: dist-staging
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p dist
+          find dist-staging -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.yml" -o -name "*.blockmap" \) -exec cp {} dist/ \;
+          ls -la dist/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
