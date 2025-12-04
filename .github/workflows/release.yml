@@ -68,7 +68,7 @@ jobs:
 
       - name: Install native dependencies
         working-directory: native
-        run: npm ci
+        run: npm install
 
       - name: Build native addon
         working-directory: native
