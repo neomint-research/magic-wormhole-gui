@@ -10,142 +10,108 @@
 
 ## Overview
 
-Desktop GUI for secure peer-to-peer file transfers using [Magic Wormhole](https://magic-wormhole.readthedocs.io/). Files transfer directly between devices without cloud storage or accounts.
+Wormhole Desktop is a GUI for the [Magic Wormhole](https://magic-wormhole.readthedocs.io/) protocol. It transfers files directly between devices without cloud storage, accounts, or configuration. Share a short code, and the transfer happens peer-to-peer.
 
-Optional AES-256 encryption adds a user-controlled encryption layer on top of the transfer. This follows the principle that only encryption where you define your own key can be truly trusted - the password never leaves your device and is never transmitted.
+Optional AES-256 encryption adds a second layer where you control the key. The password never leaves your device.
 
 ## Features
 
-- Native Magic Wormhole integration (no Docker required)
+- Native Magic Wormhole integration (no Docker, no external dependencies)
 - Drag and drop files and folders
 - Send text messages (credentials, code snippets, notes)
-- Optional AES-256 password encryption (files and messages)
-- Secure delete: 3-pass overwrite for temp files and originals
-- Cross-platform (Windows, macOS, Linux)
-- Portable mode (run from USB, no installation)
-- Smart installer (detects existing installation, offers upgrade/uninstall)
-- Dark/Light theme
-
-## Changelog
-
-### 3.0.0
-- **Native Wormhole**: Replaced Docker-based implementation with native Rust integration via [magic-wormhole.rs](https://github.com/magic-wormhole/magic-wormhole.rs)
-- **No Docker Required**: Application now runs standalone without any external dependencies
-- **Improved Performance**: Native binary eliminates container startup overhead
-- **Better Progress**: Native progress callbacks instead of stdout parsing
-
-### 2.2.0
-- **Secure Delete**: Optional 3-pass overwrite (random, random, zeros) for temp files after transfer
-- **Delete Originals**: Option to securely delete original files after successful transfer
-- **Confirmation Dialog**: Type "DELETE" to confirm original file deletion
-- **SSD Notice**: Warning that forensic recovery cannot be fully prevented on SSDs and CoW filesystems
-- **Security Hardening**: Symlink protection, null-byte injection prevention, path traversal blocking
-
-### 2.1.0
-- Text message support
-- UI polish and animations
-
-### 2.0.0
-- Complete TypeScript rewrite
-- AES-256 encryption with 7-Zip
-- NSIS installer with upgrade detection
+- Optional AES-256 password encryption
+- Secure delete with 3-pass overwrite
+- Portable mode (run from USB)
+- Dark and light theme
 
 ## Quick Start
 
-Download the release for your platform and run - no additional setup required.
+Download the [latest release](https://github.com/user/wormhole-desktop/releases) for your platform:
 
-**Windows:** `Wormhole-Desktop-Setup-x.x.x.exe` (installer) or `Wormhole-Desktop-x.x.x-win.zip` (portable)
+- **Windows:** Installer (`.exe`) or portable (`.zip`)
+- **macOS:** DMG
+- **Linux:** AppImage or `.deb`
+
+Run the application. No setup required.
 
 ## Usage
 
-**Send Files:** Drop files or browse, optionally enable encryption, click Send, share the code.
+**Send files:**
+1. Drop files or folders into the window (or click Browse)
+2. Optional: Enter a password for AES-256 encryption
+3. Click Send
+4. Share the code with the recipient (e.g. "7-guitarist-revenge")
+5. Transfer starts automatically when they connect
 
-**Send Message:** Type or paste text in the input field, optionally enable encryption, click Send, share the code.
+**Send text:** Type or paste into the text field instead of dropping files. Same flow.
 
-**Receive:** Enter code, click Receive. Files are saved to your documents folder. Messages are displayed directly (not saved to disk for privacy).
+**Receive:**
+1. Enter the code from the sender
+2. Click Receive
+3. Files save to your documents folder
+4. Text messages display directly (not saved to disk)
 
-Encrypted transfers use 7-Zip AES-256 format. Recipients can extract with any compatible tool using the shared password.
+**Secure delete:** After a successful transfer, you can shred temp files and optionally the originals. Uses 3-pass overwrite (random, random, zeros). On SSDs and copy-on-write filesystems (APFS, Btrfs), forensic recovery cannot be fully prevented - the app is honest about this.
+
+**Encryption:** Uses 7-Zip AES-256 format. Recipients can extract with 7-Zip, WinRAR, or any compatible tool using the shared password.
 
 ## Development
 
-```bash
-# Requirements: Node.js 20+, Rust toolchain (rustup)
+Requirements: Node.js 20+, Rust toolchain
 
+```bash
 git clone https://github.com/user/wormhole-desktop.git
 cd wormhole-desktop
 npm install
-
-# Build native module (once, or after Rust changes)
-npm run build:native
-
-# Run in development mode
-npm run dev
+npm run build:native   # Build Rust module (once)
+npm run dev            # Run in development mode
 ```
 
-**Build distribution:**
+Build distribution:
+
 ```bash
-npm run dist:win    # Windows (NSIS + ZIP)
-npm run dist:mac    # macOS
-npm run dist:linux  # Linux
+npm run dist:win       # Windows
+npm run dist:mac       # macOS
+npm run dist:linux     # Linux
 ```
 
-**Release workflow (Semantic Versioning):**
+Project structure:
 
-Quick release (version bump + build in one command):
-```bash
-npm run release:patch  # Bugfix: 1.0.0 → 1.0.1
-npm run release:minor  # Feature: 1.0.1 → 1.1.0
-npm run release:major  # Breaking: 1.1.0 → 2.0.0
-```
-
-Full release process:
-```bash
-# 1. Commit all changes
-git add -A
-git commit -m "feat/fix: description of changes"
-
-# 2. Bump version (choose one)
-npm run version:patch   # or version:minor or version:major
-
-# 3. Commit version bump
-git add package.json
-git commit -m "release: vX.Y.Z"
-
-# 4. Create git tag
-git tag vX.Y.Z
-
-# 5. Build distribution
-npm run dist:win        # or dist:mac or dist:linux
-
-# 6. Push to remote
-git push && git push --tags
-```
-
-Output files in `dist/`:
-- `Wormhole Desktop Setup X.Y.Z.exe` (Windows installer)
-- `Wormhole Desktop-X.Y.Z-win.zip` (Windows portable)
-
-**Project structure:**
 ```
 src/
-├── main/       # Electron main process, IPC, services
-├── preload/    # Context bridge API
-├── renderer/   # UI (TypeScript/CSS)
+├── main/       # Electron main process
+├── preload/    # Context bridge
+├── renderer/   # UI
 └── shared/     # Types, constants
-native/         # Rust native module (magic-wormhole bindings)
+native/         # Rust bindings to magic-wormhole
 ```
 
 ## Limitations
 
 - Single transfer at a time
 - 50 GB archive size limit
+- macOS and Linux builds require platform-specific compilation
+
+## Changelog
+
+### 3.0.0
+- Native Rust integration via magic-wormhole.rs (no Docker required)
+- Improved performance and progress reporting
+
+### 2.2.0
+- Secure delete for temp files and originals
+- Security hardening (symlink protection, path traversal blocking)
+
+### 2.1.0
+- Text message support
+
+### 2.0.0
+- TypeScript rewrite
+- AES-256 encryption with 7-Zip
+- NSIS installer with upgrade detection
 
 ## License
 
 MIT © SKR
 
-This project uses [magic-wormhole.rs](https://github.com/magic-wormhole/magic-wormhole.rs) (Apache-2.0/MIT) and wraps the [Magic Wormhole](https://github.com/magic-wormhole/magic-wormhole) protocol by Brian Warner.
-
----
-
-Contact: research@neomint.com
+Uses [magic-wormhole.rs](https://github.com/magic-wormhole/magic-wormhole.rs) (Apache-2.0/MIT).

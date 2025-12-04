@@ -127,17 +127,6 @@ export interface TextReadResponse {
 }
 
 // ============================================================
-// PROCESS TYPES
-// ============================================================
-
-export interface ProcessResult {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-  timedOut: boolean;
-}
-
-// ============================================================
 // PRELOAD API TYPE
 // ============================================================
 
